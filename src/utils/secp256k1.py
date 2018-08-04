@@ -45,7 +45,7 @@ def point_mul(d: int) -> Point:
     return q
 
 
-def b58_encode(d):
+def b58_encode(d: bytes) -> str:
     out = ""
     p = 0
     x = 0
