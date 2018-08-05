@@ -24,6 +24,7 @@ class SingleOutput:
 
 @dataclass
 class TxOut:
+    """ A single Transaction Output """
     # The amount in satoshis
     amount: int
 
@@ -33,6 +34,7 @@ class TxOut:
 
 @dataclass
 class TxIn:
+    """ A single Transaction Input """
     # The UTXO we will be spending
     # Can be None for coinbase tx
     payout: Optional[SingleOutput]
@@ -47,10 +49,11 @@ class TxIn:
 
 @dataclass
 class Transaction:
+    """ A transaction as defined by bitcoin core """
 
     def __str__(self):
-        # TODO
-        return f'{self.version}{self.locktime}'
+        # TODO add some representation of vin and vout or copy from bitcoin core
+        return f'Transaction{self.version}{self.locktime}'
 
     # Version for this transaction
     version: int
@@ -69,6 +72,11 @@ class Transaction:
 
 @dataclass
 class BlockHeader:
+    """ The header of a block """
+
+    def __str__(self):
+        return f'{self.version}{self.prev_block_hash}{self.merkle_root}{self.timestamp}{self.target_bits}{self.nonce}'
+
     # Version
     version: int
 
@@ -100,15 +108,16 @@ class Block:
     transactions: Iterable[Transaction]
 
 
-def dhash(s: Union[str, Transaction]) -> str:
+def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
     """ Double sha256 hash """
-    if isinstance(s, Transaction):
+    if not isinstance(s, str):
         s = str(s)
     s = s.encode()
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
 
 
 def merkle_hash(transactions: Iterable[Transaction]) -> str:
+    """ Computes and returns the merkle tree root for a list of transactions """
     if len(transactions) == 1:
         return dhash(transactions[0])
     if len(transactions) % 2 != 0:
@@ -122,7 +131,7 @@ def merkle_hash(transactions: Iterable[Transaction]) -> str:
         for i in range(0, len(t), 2):
             new_hash = dhash(t[i] + t[i + 1])
             t_child.append(new_hash)
-        recursive_merkle_hash(t_child)
+        return recursive_merkle_hash(t_child)
 
     return recursive_merkle_hash(transactions)
 
