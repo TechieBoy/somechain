@@ -8,8 +8,10 @@ TODO:
 
 """
 from dataclasses import dataclass
-from typing import Optional, Iterable, List, Union
+from typing import Optional, List, Union
 import hashlib
+from utils.dataclass_json import DataClassJson
+import json
 
 
 @dataclass
@@ -23,7 +25,7 @@ class SingleOutput:
 
 
 @dataclass
-class TxOut:
+class TxOut(DataClassJson):
     """ A single Transaction Output """
     # The amount in satoshis
     amount: int
@@ -33,7 +35,7 @@ class TxOut:
 
 
 @dataclass
-class TxIn:
+class TxIn(DataClassJson):
     """ A single Transaction Input """
     # The UTXO we will be spending
     # Can be None for coinbase tx
@@ -48,12 +50,11 @@ class TxIn:
 
 
 @dataclass
-class Transaction:
+class Transaction(DataClassJson):
     """ A transaction as defined by bitcoin core """
 
     def __str__(self):
-        # TODO add some representation of vin and vout or copy from bitcoin core
-        return f'Transaction{self.version}{self.locktime}'
+        return self.to_json()
 
     # Version for this transaction
     version: int
@@ -64,18 +65,18 @@ class Transaction:
     locktime: int
 
     # The input transactions
-    vin: Iterable[TxIn]
+    vin: List[TxIn]
 
     # The output transactions
-    vout: Iterable[TxOut]
+    vout: List[TxOut]
 
 
 @dataclass
-class BlockHeader:
+class BlockHeader(DataClassJson):
     """ The header of a block """
 
     def __str__(self):
-        return f'{self.version}{self.prev_block_hash}{self.merkle_root}{self.timestamp}{self.target_bits}{self.nonce}'
+        return self.to_json()
 
     # Version
     version: int
@@ -98,14 +99,18 @@ class BlockHeader:
 
 
 @dataclass
-class Block:
+class Block(DataClassJson):
     """ A single block """
 
     # The block header
     header: BlockHeader
 
     # The transactions in this block
-    transactions: Iterable[Transaction]
+    transactions: List[Transaction]
+
+    def __repr__(self):
+        s = self.to_json().encode()
+        return hashlib.sha256(s).hexdigest()
 
 
 def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
@@ -116,14 +121,14 @@ def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
 
 
-def merkle_hash(transactions: Iterable[Transaction]) -> str:
+def merkle_hash(transactions: List[Transaction]) -> str:
     """ Computes and returns the merkle tree root for a list of transactions """
     if len(transactions) == 1:
         return dhash(transactions[0])
     if len(transactions) % 2 != 0:
-        transactions = transactions + transactions[-1]
-    map(dhash, transactions)
-
+        transactions = transactions + [transactions[-1]]
+    transactions_hash =  list(map(dhash, transactions))
+    
     def recursive_merkle_hash(t: List[str]) -> str:
         if len(t) == 1:
             return t[0]
@@ -133,16 +138,29 @@ def merkle_hash(transactions: Iterable[Transaction]) -> str:
             t_child.append(new_hash)
         return recursive_merkle_hash(t_child)
 
-    return recursive_merkle_hash(transactions)
+    return recursive_merkle_hash(transactions_hash)
 
 
-genesis_block_transaction = Transaction(version=1, locktime=0,
+genesis_block_transaction = [Transaction(version=1, locktime=0,
                                         vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
-                                        vout=[TxOut(amount=5000000000,
-                                                    address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')])
+                                        vout=[TxOut(amount=5000000000,address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
+                             Transaction(version=1, locktime=0,
+                                        vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
+                                        vout=[TxOut(amount=5000000000,address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
+                             Transaction(version=1, locktime=0,
+                                        vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
+                                        vout=[TxOut(amount=5000000000,address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')])                                        
+                            ]
+
 genesis_block_header = BlockHeader(version=1, prev_block_hash=None,
-                                   merkle_root=merkle_hash([genesis_block_transaction]),
+                                   merkle_root=merkle_hash(genesis_block_transaction),
                                    timestamp=1231006505, target_bits=0xFFFF001D, nonce=2083236893)
-genesis_block = Block(header=genesis_block_header, transactions=[genesis_block_transaction])
+genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
 
 print(genesis_block)
+
+s = genesis_block.to_json()
+b = Block.from_json(s)
+print(b)
+
+assert genesis_block == b
