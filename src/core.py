@@ -76,10 +76,13 @@ class BlockHeader(DataClassJson):
     """ The header of a block """
 
     def __str__(self):
-        return self.to_json()
+        return f"{self.version}|{self.prev_block_hash}|{self.merkle_root}|{self.timestamp}|{self.target_bits}|{self.nonce}"
 
     # Version
     version: int
+
+    # Block Height
+    height: Optional[int]
 
     # A reference to the hash of the previous block
     prev_block_hash: Optional[str]
@@ -90,8 +93,7 @@ class BlockHeader(DataClassJson):
     # The approximate creation time of this block (seconds from Unix Epoch)
     timestamp: int
 
-    # Proof-of-Work target as a coefficient/exponent format
-    # target = coefficient * 2^(8 * (exponent – 3))
+    # Proof-of-Work target as number of zero bits in the beginning of the hash
     target_bits: int
 
     # Nonce to try to get a hash below target_bits
@@ -102,6 +104,9 @@ class BlockHeader(DataClassJson):
 class Block(DataClassJson):
     """ A single block """
 
+    # TODO
+    def is_valid(self):
+        return True
     # The block header
     header: BlockHeader
 
@@ -109,16 +114,7 @@ class Block(DataClassJson):
     transactions: List[Transaction]
 
     def __repr__(self):
-        s = self.to_json().encode()
-        return hashlib.sha256(s).hexdigest()
-
-
-def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
-    """ Double sha256 hash """
-    if not isinstance(s, str):
-        s = str(s)
-    s = s.encode()
-    return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
+        return dhash(self.header)
 
 
 def merkle_hash(transactions: List[Transaction]) -> str:
@@ -127,8 +123,8 @@ def merkle_hash(transactions: List[Transaction]) -> str:
         return dhash(transactions[0])
     if len(transactions) % 2 != 0:
         transactions = transactions + [transactions[-1]]
-    transactions_hash =  list(map(dhash, transactions))
-    
+    transactions_hash = list(map(dhash, transactions))
+
     def recursive_merkle_hash(t: List[str]) -> str:
         if len(t) == 1:
             return t[0]
@@ -141,16 +137,24 @@ def merkle_hash(transactions: List[Transaction]) -> str:
     return recursive_merkle_hash(transactions_hash)
 
 
+def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
+    """ Double sha256 hash """
+    if not isinstance(s, str):
+        s = str(s)
+    s = s.encode()
+    return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
+
+
 genesis_block_transaction = [Transaction(version=1, locktime=0,
-                                        vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
-                                        vout=[TxOut(amount=5000000000,address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
+                                         vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
+                                         vout=[TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
                              Transaction(version=1, locktime=0,
-                                        vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
-                                        vout=[TxOut(amount=5000000000,address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
+                                         vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
+                                         vout=[TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
                              Transaction(version=1, locktime=0,
-                                        vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
-                                        vout=[TxOut(amount=5000000000,address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')])                                        
-                            ]
+                                         vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
+                                         vout=[TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')])
+                             ]
 
 genesis_block_header = BlockHeader(version=1, prev_block_hash=None,
                                    merkle_root=merkle_hash(genesis_block_transaction),
