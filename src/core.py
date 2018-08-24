@@ -156,7 +156,7 @@ genesis_block_transaction = [Transaction(version=1, locktime=0,
                                          vout=[TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')])
                              ]
 
-genesis_block_header = BlockHeader(version=1, prev_block_hash=None,
+genesis_block_header = BlockHeader(version=1, prev_block_hash=None, height=1,
                                    merkle_root=merkle_hash(genesis_block_transaction),
                                    timestamp=1231006505, target_bits=0xFFFF001D, nonce=2083236893)
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
