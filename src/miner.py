@@ -38,7 +38,7 @@ def greet_peer(peer: Mapping[str, Any]) -> List:
 def load_block_db():
     global BLOCK_DB
     if not BLOCK_DB:
-        BLOCK_DB = pickledb.load(consts.BLOCK_DB_LOC, False)
+        BLOCK_DB = pickledb.load(consts.BLOCK_DB_LOC, True)
     return BLOCK_DB
 
 
@@ -64,10 +64,11 @@ def receive_block_from_peer(peer: Mapping[str, Any], header_hash) -> Block:
 
 def sync(peer_list):
     max_peer = max(peer_list, key=lambda k: k['blockheight'])
-    r = requests.post(get_peer_url(max_peer) + "/getblockhashes/", data={'myheight': len(ACTIVE_CHAIN)})
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={'myheight': len(ACTIVE_CHAIN)})
+    print(r.text)
     hash_list = json.loads(r.text)
     for hhash in hash_list:
-        peer_url = get_peer_url(random.choice(peer_list)) + "/getblock/"
+        peer_url = get_peer_url(random.choice(peer_list)) + "/getblock"
         r = requests.post(peer_url, data={"headerhash": hhash})
         block = Block.from_json(r.text)
         if block.is_valid():
@@ -96,10 +97,10 @@ def getblock():
 
 @app.route("/getblockhashes", methods=['POST'])
 def send_block_hashes():
-    peer_height = request.form.get('myheight')
+    peer_height = int(request.form.get('myheight'))
     hash_list = []
     for i in range(peer_height + 1, len(ACTIVE_CHAIN)):
-        hash_list.append(str(ACTIVE_CHAIN[i]))
+        hash_list.append(dhash(ACTIVE_CHAIN[i]))
     return jsonify(hash_list)
 
 
@@ -122,11 +123,14 @@ if __name__ == "__main__":
         # peer_list.append({'ip': "localhost", 'port': consts.MINER_SERVER_PORT, 'time': time.time()})
         for peer in peer_list:
             # TODO delete the peer if could not establish a connection.
+            print(get_peer_url(peer))
             data = greet_peer(peer)
             # Update the peer data in the peer list with the new data recieved from the peer.
             peer.update(data)
         print(peer_list)
         sync(peer_list)
+        # print(ACTIVE_CHAIN)
+        # print(get_block_from_db(dhash(ACTIVE_CHAIN[0])))
 
 
     t = threading.Thread(target=func)
