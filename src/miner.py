@@ -10,7 +10,7 @@ from typing import Mapping, Any
 
 app = Flask(__name__)
 
-ACTIVE_CHAIN = [genesis_block]
+ACTIVE_CHAIN = []
 
 BLOCKCHAIN = [ACTIVE_CHAIN]
 
@@ -53,7 +53,7 @@ def add_block_to_db(block: Block) -> bool:
 
 
 def add_block_to_chain(block: Block) -> bool:
-    ACTIVE_CHAIN[block.header.height] = block
+    ACTIVE_CHAIN.append(block.header)
     return True
 
 
@@ -104,24 +104,29 @@ def send_block_hashes():
 
 
 if __name__ == "__main__":
+    
+    add_block_to_chain(genesis_block)
+    add_block_to_db(genesis_block)
+    
     # # ORDER
-    # Get list of peers
-    # Contact peers and get current state of blockchain
-    # Sync upto the current blockchain
-    # Start the flask server and listen for future blocks and transactions.
+    # Get list of peers ✓
+    # Contact peers and get current state of blockchain ✓
+    # Sync upto the current blockchain ✓
+    # Start the flask server and listen for future blocks and transactions. 
     # Start a thread to handle the new block/transaction
 
     def func():
         time.sleep(2)  # wait for the flask server to start running
         peer_list = fetch_peer_list()
-        # Add yourself as a peer( doing so just to test as currently this node is the only node on the network)
-        peer_list.append({'ip': "localhost", 'port': consts.MINER_SERVER_PORT, 'time': time.time()})
+        # # Add yourself as a peer( doing so just to test as currently this node is the only node on the network)
+        # peer_list.append({'ip': "localhost", 'port': consts.MINER_SERVER_PORT, 'time': time.time()})
         for peer in peer_list:
             # TODO delete the peer if could not establish a connection.
             data = greet_peer(peer)
             # Update the peer data in the peer list with the new data recieved from the peer.
             peer.update(data)
         print(peer_list)
+        sync(peer_list)
 
 
     t = threading.Thread(target=func)
