@@ -8,10 +8,11 @@ TODO:
 
 """
 from dataclasses import dataclass
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Mapping
 import hashlib
 from utils.dataclass_json import DataClassJson
-import json
+from utils.storage import *
+import utils.constants as consts
 
 
 @dataclass
@@ -56,6 +57,9 @@ class Transaction(DataClassJson):
     def __str__(self):
         return self.to_json()
 
+    # Whether this transaction is coinbase transaction
+    is_coinbase: bool
+
     # Version for this transaction
     version: int
 
@@ -65,10 +69,10 @@ class Transaction(DataClassJson):
     locktime: int
 
     # The input transactions
-    vin: List[TxIn]
+    vin: Mapping[int, TxIn]
 
     # The output transactions
-    vout: List[TxOut]
+    vout: Mapping[int, TxOut]
 
 
 @dataclass
@@ -105,8 +109,22 @@ class Block(DataClassJson):
     """ A single block """
 
     # TODO
-    def is_valid(self):
-        return True
+    def is_valid(self, target_difficulty):
+        from sys import getsizeof
+        if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or \
+                len(self.transactions) == 0:
+            return False
+
+        hhash = str(self)
+        pow = 0
+        for i, c in enumerate(hhash):
+            if not c == '0':
+                break
+            else:
+                pow += 1
+        if pow < target_difficulty:
+            return False
+
     # The block header
     header: BlockHeader
 
@@ -115,6 +133,29 @@ class Block(DataClassJson):
 
     def __repr__(self):
         return dhash(self.header)
+
+
+@dataclass
+class Chain:
+    # The max length of the blockchain
+    length: int
+
+    # The list of blocks
+    header_list: List[BlockHeader]
+
+    # The UTXO Set
+    utxo: Mapping[SingleOutput, TxOut]
+
+    def add_block(self, block: Block):
+        if not block.is_valid(get_target_difficulty(self)):
+            return False
+
+        if len(self.header_list) == 0 or \
+                dhash(self.header_list[-1]) == block.header.prev_block_hash:
+            self.header_list.append(block.header)
+            add_block_to_db(block)
+            return True
+        return False
 
 
 def merkle_hash(transactions: List[Transaction]) -> str:
@@ -145,6 +186,11 @@ def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
 
 
+def get_target_difficulty(chain: Chain) -> int:
+    # TODO
+    return 2
+
+
 genesis_block_transaction = [Transaction(version=1, locktime=0,
                                          vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
                                          vout=[TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
@@ -160,11 +206,3 @@ genesis_block_header = BlockHeader(version=1, prev_block_hash=None, height=1,
                                    merkle_root=merkle_hash(genesis_block_transaction),
                                    timestamp=1231006505, target_bits=0xFFFF001D, nonce=2083236893)
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
-
-print(genesis_block)
-
-s = genesis_block.to_json()
-b = Block.from_json(s)
-print(b)
-
-assert genesis_block == b

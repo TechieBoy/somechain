@@ -4,8 +4,9 @@ import random
 from flask import Flask, jsonify, request
 from core import *
 import time
+import json
 import threading
-import pickledb
+from utils.storage import *
 from typing import Mapping, Any
 
 app = Flask(__name__)
@@ -15,8 +16,6 @@ ACTIVE_CHAIN = []
 BLOCKCHAIN = [ACTIVE_CHAIN]
 
 PEER_LIST = []
-
-BLOCK_DB = None
 
 
 def fetch_peer_list():
@@ -33,23 +32,6 @@ def greet_peer(peer: Mapping[str, Any]) -> List:
     url = get_peer_url(peer)
     r = requests.get(url)
     return json.loads(r.text)
-
-
-def load_block_db():
-    global BLOCK_DB
-    if not BLOCK_DB:
-        BLOCK_DB = pickledb.load(consts.BLOCK_DB_LOC, False)
-    return BLOCK_DB
-
-
-def get_block_from_db(header_hash: str) -> str:
-    db = load_block_db()
-    return db.get(header_hash)
-
-
-def add_block_to_db(block: Block) -> bool:
-    db = load_block_db()
-    return db.set(dhash(block.header), block.to_json())
 
 
 def add_block_to_chain(block: Block) -> bool:
@@ -104,10 +86,11 @@ def send_block_hashes():
 
 
 if __name__ == "__main__":
-    
+
     add_block_to_chain(genesis_block)
     add_block_to_db(genesis_block)
-    
+
+
     # # ORDER
     # Get list of peers ✓
     # Contact peers and get current state of blockchain ✓
