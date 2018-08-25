@@ -1,6 +1,6 @@
 import pickledb
-from ..core import Block, dhash
-import constants as consts
+from src.core import Block, dhash
+from src.utils.constants import BLOCK_DB_LOC
 
 BLOCK_DB = None
 
@@ -8,7 +8,7 @@ BLOCK_DB = None
 def load_block_db():
     global BLOCK_DB
     if not BLOCK_DB:
-        BLOCK_DB = pickledb.load(consts.BLOCK_DB_LOC, False)
+        BLOCK_DB = pickledb.load(BLOCK_DB_LOC, False)
     return BLOCK_DB
 
 

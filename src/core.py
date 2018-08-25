@@ -13,6 +13,7 @@ import hashlib
 from utils.dataclass_json import DataClassJson
 from utils.storage import *
 import utils.constants as consts
+import datetime
 
 
 @dataclass
@@ -108,23 +109,6 @@ class BlockHeader(DataClassJson):
 class Block(DataClassJson):
     """ A single block """
 
-    # TODO
-    def is_valid(self, target_difficulty):
-        from sys import getsizeof
-        if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or \
-                len(self.transactions) == 0:
-            return False
-
-        hhash = str(self)
-        pow = 0
-        for i, c in enumerate(hhash):
-            if not c == '0':
-                break
-            else:
-                pow += 1
-        if pow < target_difficulty:
-            return False
-
     # The block header
     header: BlockHeader
 
@@ -133,6 +117,49 @@ class Block(DataClassJson):
 
     def __repr__(self):
         return dhash(self.header)
+
+    def is_valid(self, target_difficulty: int) -> bool:
+        from sys import getsizeof
+
+        # Block should be of valid size
+        if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or \
+                len(self.transactions) == 0:
+            return False
+
+        # Block hash should have proper difficulty
+        hhash = str(self)
+        pow = 0
+        for c in hhash:
+            if not c == '0':
+                break
+            else:
+                pow += 1
+        if pow < target_difficulty:
+            return False
+
+        # Block should not have been mined more than 2 hours in the future
+        now = datetime.datetime.now()
+        mined_time = datetime.datetime.fromtimestamp(self.header.timestamp)
+        difference = mined_time - now
+        if difference.total_seconds() > 2 * 60 * 60:
+            return False
+
+        # Reject if timestamp is the median time of the last 11 blocks or before
+        # TODO
+
+        # The first and only first transaction should be coinbase
+        transaction_status = [transaction.is_coinbase for transaction in self.transactions]
+        first_transaction = transaction_status[0]
+        other_transactions = transaction_status[1:]
+        if not first_transaction or any(other_transactions):
+            return False
+
+        # Make sure each transaction is valid
+        # TODO
+
+        # Verify merkle hash
+        if self.header.merkle_root != merkle_hash(self.transactions):
+            return False
 
 
 @dataclass
