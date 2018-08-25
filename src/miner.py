@@ -40,7 +40,7 @@ def add_block_to_chain(block: Block) -> bool:
 
 
 def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
-    r = requests.post(get_peer_url(peer), data={'header_hash': header_hash})
+    r = requests.post(get_peer_url(peer) + '/getblock', data={'headerhash': header_hash})
     return Block.from_json(r.text)
 
 
@@ -50,9 +50,7 @@ def sync(peer_list):
     print(r.text)
     hash_list = json.loads(r.text)
     for hhash in hash_list:
-        peer_url = get_peer_url(random.choice(peer_list)) + "/getblock"
-        r = requests.post(peer_url, data={"headerhash": hhash})
-        block = Block.from_json(r.text)
+        block = receive_block_from_peer(random.choice(peer_list), hhash)
         if block.is_valid():
             add_block_to_db(block)
             add_block_to_chain(block)
