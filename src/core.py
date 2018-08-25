@@ -127,6 +127,7 @@ class Block(DataClassJson):
         # Block should be of valid size
         if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or \
                 len(self.transactions) == 0:
+            print("Block Size Exceeded")
             return False
 
         # Block hash should have proper difficulty
@@ -138,6 +139,7 @@ class Block(DataClassJson):
             else:
                 pow += 1
         if pow < target_difficulty:
+            print("POW not valid")
             return False
 
         # Block should not have been mined more than 2 hours in the future
@@ -145,6 +147,7 @@ class Block(DataClassJson):
         mined_time = datetime.datetime.fromtimestamp(self.header.timestamp)
         difference = mined_time - now
         if difference.total_seconds() > 2 * 60 * 60:
+            print("Time Stamp not valid")
             return False
 
         # Reject if timestamp is the median time of the last 11 blocks or before
@@ -155,6 +158,7 @@ class Block(DataClassJson):
         first_transaction = transaction_status[0]
         other_transactions = transaction_status[1:]
         if not first_transaction or any(other_transactions):
+            print("Coinbase transaction not valid")
             return False
 
         # Make sure each transaction is valid
@@ -162,52 +166,62 @@ class Block(DataClassJson):
 
         # Verify merkle hash
         if self.header.merkle_root != merkle_hash(self.transactions):
+            print("Merkle Hash failed")
             return False
-
+        return True
 
 @dataclass
 class Chain:
     # The max length of the blockchain
-    length: int
+    length: int = 0
 
     # The list of blocks
-    header_list: List[BlockHeader]
+    header_list: List[BlockHeader] = None
 
     # The UTXO Set
-    utxo: Dict[SingleOutput, TxOut]
+    utxo: Dict[SingleOutput, TxOut] = None
 
     # Build the UTXO Set from scratch
     # TODO Test this lol
     def build_utxo(self):
         self.utxo = {}
         for header in self.header_list:
-            block_transactions: List[Transaction] = Block.from_json(get_block_from_db(dhash(header))).transactions
-            for t in block_transactions:
-                thash = dhash(t)
-                if t.is_coinbase:
-                    for output in t.vout:
-                        self.utxo[SingleOutput(txid=thash, vout=output)] = t.vout[output]
-                else:
-                    for tinput in t.vin:
-                        so = SingleOutput(txid=thash, vout=t.vin[tinput].payout.vout)
-                        if so in self.utxo:
-                            # TODO verify sig and pub key?!
-                            # add to utxo if valid
-                            pass
+            block = Block.from_json(get_block_from_db(dhash(header)))
+            self.update_utxo(block)
 
     # Update the UTXO Set on adding new block
-    def update_utxo(self):
-        # TODO
-        pass
+    def update_utxo(self, block: Block):
+
+        # TODO ensure that the block & all transactions are valid as per current utxo
+
+        block_transactions: List[Transaction] = block.transactions
+        for t in block_transactions:
+            thash = dhash(t)
+            if not t.is_coinbase:
+                # Remove the spent outputs
+                for tinput in t.vin:
+                    so = SingleOutput(txid=thash, vout=t.vin[tinput].payout.vout)
+                    if so in self.utxo:
+                        # TODO verify sig and pub key?!(shouldn't it be done before hand?)
+                        # add to utxo if valid
+                        del self.utxo[so]
+            # Add new unspent outputs
+            for touput in t.vout:
+                self.utxo[SingleOutput(txid=thash, vout=touput)] = t.vout[touput]
 
     def add_block(self, block: Block):
         if not block.is_valid(get_target_difficulty(self)):
             return False
 
+        if not self.header_list:
+            self.header_list = []
+            self.utxo = {}
+
         if len(self.header_list) == 0 or \
                 dhash(self.header_list[-1]) == block.header.prev_block_hash:
             self.header_list.append(block.header)
             add_block_to_db(block)
+            self.update_utxo(block)
             return True
         return False
 
@@ -242,7 +256,7 @@ def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
 
 def get_target_difficulty(chain: Chain) -> int:
     # TODO
-    return 2
+    return 0
 
 
 genesis_block_transaction = [Transaction(version=1,

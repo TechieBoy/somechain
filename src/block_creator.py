@@ -8,10 +8,6 @@ from typing import Dict, Any
 
 app = Flask(__name__)
 
-ACTIVE_CHAIN = []
-
-BLOCKCHAIN = [ACTIVE_CHAIN]
-
 PEER_LIST = []
 
 BLOCK_DB = None
@@ -31,11 +27,6 @@ def greet_peer(peer: Dict[str, Any]) -> List:
     url = get_peer_url(peer)
     r = requests.get(url)
     return json.loads(r.text)
-
-
-def add_block_to_chain(block: Block) -> bool:
-    ACTIVE_CHAIN.append(block.header)
-    return True
 
 
 def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
@@ -85,10 +76,12 @@ def send_block_hashes():
 
 
 if __name__ == "__main__":
-    for i in range(100):
-        add_block_to_chain(genesis_block)
-        add_block_to_db(genesis_block)
 
+    ACTIVE_CHAIN = Chain()
+
+    result = ACTIVE_CHAIN.add_block(genesis_block)
+    print(result)
+    print(ACTIVE_CHAIN.utxo)
 
     # # ORDER
     # Get list of peers ✓
@@ -96,6 +89,7 @@ if __name__ == "__main__":
     # Sync upto the current blockchain ✓
     # Start the flask server and listen for future blocks and transactions.
     # Start a thread to handle the new block/transaction
-    fetch_peer_list()
 
-    app.run(host='0.0.0.0', port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
+    # fetch_peer_list()
+
+    # app.run(host='0.0.0.0', port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
