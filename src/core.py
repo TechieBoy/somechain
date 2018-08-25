@@ -7,12 +7,15 @@ TODO:
     Storage
 
 """
+import sys
+sys.path.append("..")
+
 from dataclasses import dataclass
 from typing import Optional, List, Union, Dict
 import hashlib
-from utils.dataclass_json import DataClassJson
-from utils.storage import *
-import utils.constants as consts
+from src.utils.dataclass_json import DataClassJson
+from src.utils.storage import *
+import src.utils.constants as consts
 import datetime
 
 
@@ -242,18 +245,21 @@ def get_target_difficulty(chain: Chain) -> int:
     return 2
 
 
-genesis_block_transaction = [Transaction(version=1, locktime=0,
-                                         vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
-                                         vout=[TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
-                             Transaction(version=1, locktime=0,
-                                         vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
-                                         vout=[TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')]),
-                             Transaction(version=1, locktime=0,
-                                         vin=[TxIn(payout=None, sig='0', pub_key='', sequence=0)],
-                                         vout=[TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')])
+genesis_block_transaction = [Transaction(version=1,
+                                         locktime=0,
+                                         is_coinbase=True,
+                                         vin={
+                                             0: TxIn(payout=None, sig='0', pub_key='', sequence=0)
+                                         },
+                                         vout={
+                                             0: TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')
+                                         }),
                              ]
 
 genesis_block_header = BlockHeader(version=1, prev_block_hash=None, height=1,
                                    merkle_root=merkle_hash(genesis_block_transaction),
                                    timestamp=1231006505, target_bits=0xFFFF001D, nonce=2083236893)
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
+
+if __name__== "__main__":
+    print(genesis_block)
