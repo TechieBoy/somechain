@@ -8,7 +8,7 @@ TODO:
 
 """
 from dataclasses import dataclass
-from typing import Optional, List, Union, Mapping
+from typing import Optional, List, Union, Dict
 import hashlib
 from utils.dataclass_json import DataClassJson
 from utils.storage import *
@@ -70,10 +70,10 @@ class Transaction(DataClassJson):
     locktime: int
 
     # The input transactions
-    vin: Mapping[int, TxIn]
+    vin: Dict[int, TxIn]
 
     # The output transactions
-    vout: Mapping[int, TxOut]
+    vout: Dict[int, TxOut]
 
 
 @dataclass
@@ -171,7 +171,31 @@ class Chain:
     header_list: List[BlockHeader]
 
     # The UTXO Set
-    utxo: Mapping[SingleOutput, TxOut]
+    utxo: Dict[SingleOutput, TxOut]
+
+    # Build the UTXO Set from scratch
+    # TODO Test this lol
+    def build_utxo(self):
+        self.utxo = {}
+        for header in self.header_list:
+            block_transactions: List[Transaction] = Block.from_json(get_block_from_db(dhash(header))).transactions
+            for t in block_transactions:
+                thash = dhash(t)
+                if t.is_coinbase:
+                    for output in t.vout:
+                        self.utxo[SingleOutput(txid=thash, vout=output)] = t.vout[output]
+                else:
+                    for tinput in t.vin:
+                        so = SingleOutput(txid=thash, vout=t.vin[tinput].payout.vout)
+                        if so in self.utxo:
+                            # TODO verify sig and pub key?!
+                            # add to utxo if valid
+                            pass
+
+    # Update the UTXO Set on adding new block
+    def update_utxo(self):
+        # TODO
+        pass
 
     def add_block(self, block: Block):
         if not block.is_valid(get_target_difficulty(self)):

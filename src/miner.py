@@ -7,7 +7,7 @@ import time
 import json
 import threading
 from utils.storage import *
-from typing import Mapping, Any
+from typing import Dict, Any
 
 app = Flask(__name__)
 
@@ -24,11 +24,11 @@ def fetch_peer_list():
     return peer_list
 
 
-def get_peer_url(peer: Mapping[str, Any]) -> str:
+def get_peer_url(peer: Dict[str, Any]) -> str:
     return "http://" + str(peer['ip']) + ':' + str(peer['port'])
 
 
-def greet_peer(peer: Mapping[str, Any]) -> List:
+def greet_peer(peer: Dict[str, Any]) -> List:
     url = get_peer_url(peer)
     r = requests.get(url)
     return json.loads(r.text)
@@ -39,7 +39,7 @@ def add_block_to_chain(block: Block) -> bool:
     return True
 
 
-def receive_block_from_peer(peer: Mapping[str, Any], header_hash) -> Block:
+def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     r = requests.post(get_peer_url(peer), data={'header_hash': header_hash})
     return Block.from_json(r.text)
 

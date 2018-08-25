@@ -8,7 +8,7 @@ BLOCK_DB = None
 def load_block_db():
     global BLOCK_DB
     if not BLOCK_DB:
-        BLOCK_DB = pickledb.load(BLOCK_DB_LOC, False)
+        BLOCK_DB = pickledb.load(BLOCK_DB_LOC, True)
     return BLOCK_DB
 
 

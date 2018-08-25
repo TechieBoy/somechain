@@ -1,10 +1,10 @@
 from utils import constants as consts
+import json
 import requests
 import random
 from flask import Flask, jsonify, request
 from core import *
-import pickledb
-from typing import Mapping, Any
+from typing import Dict, Any
 
 app = Flask(__name__)
 
@@ -23,31 +23,14 @@ def fetch_peer_list():
     return peer_list
 
 
-def get_peer_url(peer: Mapping[str, Any]) -> str:
+def get_peer_url(peer: Dict[str, Any]) -> str:
     return "http://" + str(peer['ip']) + ':' + str(peer['port'])
 
 
-def greet_peer(peer: Mapping[str, Any]) -> List:
+def greet_peer(peer: Dict[str, Any]) -> List:
     url = get_peer_url(peer)
     r = requests.get(url)
     return json.loads(r.text)
-
-
-def load_block_db():
-    global BLOCK_DB
-    if not BLOCK_DB:
-        BLOCK_DB = pickledb.load(consts.BLOCK_DB_LOC, True)
-    return BLOCK_DB
-
-
-def get_block_from_db(header_hash: str) -> str:
-    db = load_block_db()
-    return db.get(header_hash)
-
-
-def add_block_to_db(block: Block) -> bool:
-    db = load_block_db()
-    return db.set(dhash(block.header), block.to_json())
 
 
 def add_block_to_chain(block: Block) -> bool:
@@ -55,7 +38,7 @@ def add_block_to_chain(block: Block) -> bool:
     return True
 
 
-def receive_block_from_peer(peer: Mapping[str, Any], header_hash) -> Block:
+def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     r = requests.post(get_peer_url(peer), data={'header_hash': header_hash})
     return Block.from_json(r.text)
 
