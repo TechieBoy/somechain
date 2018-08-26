@@ -81,6 +81,44 @@ if __name__ == "__main__":
 
     result = ACTIVE_CHAIN.add_block(genesis_block)
     print(result)
+
+    print(ACTIVE_CHAIN.utxo)
+
+    # The singleOutput for first coinbase transaction in genesis block
+    so = SingleOutput(txid=dhash(genesis_block_transaction[0]), vout=0)
+
+    first_block_transaction = [Transaction(version=1,
+                                           locktime=0,
+                                           timestamp=2,
+                                           is_coinbase=True,
+                                           vin={
+                                             0: TxIn(payout=None, sig='0', pub_key='', sequence=0)
+                                           },
+                                           vout={
+                                             0: TxOut(amount=5000000000,
+                                                      address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')
+                                           }),
+                               Transaction(version=1,
+                                           locktime=0,
+                                           timestamp=3,
+                                           is_coinbase=False,
+                                           vin={
+                                               0: TxIn(payout=so, sig='0', pub_key='', sequence=0)
+                                           },
+                                           vout={
+                                               0: TxOut(amount=1000000000,
+                                                        address='1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')
+                                           }),
+
+                            ]
+
+    first_block_header = BlockHeader(version=1, prev_block_hash=dhash(genesis_block_header), height=1,
+                                       merkle_root=merkle_hash(first_block_transaction),
+                                       timestamp=1231006505, target_bits=0xFFFF001D, nonce=2083236893)
+    first_block = Block(header=first_block_header, transactions=first_block_transaction)
+
+    result = ACTIVE_CHAIN.add_block(first_block)
+    print(result)
     print(ACTIVE_CHAIN.utxo)
 
     # # ORDER

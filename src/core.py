@@ -20,7 +20,7 @@ import datetime
 
 
 @dataclass
-class SingleOutput:
+class SingleOutput(DataClassJson):
     """ References a single output """
     # The transaction id which contains this output
     txid: str
@@ -66,6 +66,9 @@ class Transaction(DataClassJson):
 
     # Version for this transaction
     version: int
+
+    # Timestamp for this transaction
+    timestamp: int
 
     # The earliest block(< 500000000) or
     # earliest time(Unix timestamp >500000000)
@@ -171,6 +174,34 @@ class Block(DataClassJson):
         return True
 
 @dataclass
+class Utxo:
+    # Mapping from string repr of SingleOutput to TxOut
+    utxo: Dict[str, TxOut] = None
+
+    def get(self, so: SingleOutput)-> [TxOut, None]:
+        so_str = so.to_json()
+        if so_str in self.utxo:
+            return self.utxo[so_str]
+        print(so_str)
+        print(self.utxo)
+        return None
+
+    def set(self, so: SingleOutput, txout: TxOut):
+        if not self.utxo:
+            self.utxo = {}
+        so_str = so.to_json()
+        self.utxo[so_str] = txout
+
+    def remove(self, so: SingleOutput)-> bool:
+        so_str = so.to_json()
+        if so_str in self.utxo:
+            del self.utxo[so_str]
+            return True
+        return False
+
+
+
+@dataclass
 class Chain:
     # The max length of the blockchain
     length: int = 0
@@ -179,12 +210,11 @@ class Chain:
     header_list: List[BlockHeader] = None
 
     # The UTXO Set
-    utxo: Dict[SingleOutput, TxOut] = None
+    utxo: Utxo = Utxo()
 
     # Build the UTXO Set from scratch
     # TODO Test this lol
     def build_utxo(self):
-        self.utxo = {}
         for header in self.header_list:
             block = Block.from_json(get_block_from_db(dhash(header)))
             self.update_utxo(block)
@@ -200,22 +230,23 @@ class Chain:
             if not t.is_coinbase:
                 # Remove the spent outputs
                 for tinput in t.vin:
-                    so = SingleOutput(txid=thash, vout=t.vin[tinput].payout.vout)
-                    if so in self.utxo:
-                        # TODO verify sig and pub key?!(shouldn't it be done before hand?)
-                        # add to utxo if valid
-                        del self.utxo[so]
+                    so = t.vin[tinput].payout
+                    # if so in self.utxo:
+                    #     # TODO verify sig and pub key?!(shouldn't it be done before hand?)
+                    #     # add to utxo if valid
+                    #     del self.utxo[so]
+                    self.utxo.remove(so)
             # Add new unspent outputs
             for touput in t.vout:
-                self.utxo[SingleOutput(txid=thash, vout=touput)] = t.vout[touput]
+                self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput])
 
     def add_block(self, block: Block):
         if not block.is_valid(get_target_difficulty(self)):
+            print("Block is not valid")
             return False
 
         if not self.header_list:
             self.header_list = []
-            self.utxo = {}
 
         if len(self.header_list) == 0 or \
                 dhash(self.header_list[-1]) == block.header.prev_block_hash:
@@ -223,6 +254,7 @@ class Chain:
             add_block_to_db(block)
             self.update_utxo(block)
             return True
+        print("No idea what happened")
         return False
 
 
@@ -261,6 +293,7 @@ def get_target_difficulty(chain: Chain) -> int:
 
 genesis_block_transaction = [Transaction(version=1,
                                          locktime=0,
+                                         timestamp=1,
                                          is_coinbase=True,
                                          vin={
                                              0: TxIn(payout=None, sig='0', pub_key='', sequence=0)
