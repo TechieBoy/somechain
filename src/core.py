@@ -21,7 +21,6 @@ import utils.constants as consts
 from utils.logger import logger
 
 
-
 @dataclass
 class SingleOutput(DataClassJson):
     """ References a single output """
@@ -150,10 +149,7 @@ class Block(DataClassJson):
 
     def is_valid(self, target_difficulty: int) -> bool:
         # Block should be of valid size
-        if (
-            getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024
-            or len(self.transactions) == 0
-        ):
+        if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or len(self.transactions) == 0:
             print("Block Size Exceeded")
             return False
 
@@ -179,9 +175,7 @@ class Block(DataClassJson):
         # TODO
 
         # The first and only first transaction should be coinbase
-        transaction_status = [
-            transaction.is_coinbase for transaction in self.transactions
-        ]
+        transaction_status = [transaction.is_coinbase for transaction in self.transactions]
         first_transaction = transaction_status[0]
         other_transactions = transaction_status[1:]
         if not first_transaction or any(other_transactions):
@@ -260,20 +254,15 @@ class Chain:
                     self.utxo.remove(so)
             # Add new unspent outputs
             for touput in t.vout:
-                self.utxo.set(
-                    SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header
-                )
+                self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header)
 
     def add_block(self, block: Block):
-        # validate function which checks utxo and signing
+        # TODO validate function which checks utxo and signing
         if not block.is_valid(get_target_difficulty(self)):
             print("Block is not valid")
             return False
 
-        if (
-            len(self.header_list) == 0
-            or dhash(self.header_list[-1]) == block.header.prev_block_hash
-        ):
+        if len(self.header_list) == 0 or dhash(self.header_list[-1]) == block.header.prev_block_hash:
             self.header_list.append(block.header)
             add_block_to_db(block)
             self.update_utxo(block)
@@ -283,6 +272,15 @@ class Chain:
 
 
 def get_time_difference_from_now_secs(timestamp: int) -> int:
+    """Get time diference from current time in seconds
+    
+    Arguments:
+        timestamp {int} -- Time from which difference is calculated
+    
+    Returns:
+        int -- Time difference in seconds 
+    """
+
     now = datetime.datetime.now()
     mtime = datetime.datetime.fromtimestamp(timestamp)
     difference = mtime - now
@@ -329,9 +327,7 @@ genesis_block_transaction = [
         timestamp=1,
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig="0", pub_key="", sequence=0)},
-        vout={
-            0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
-        },
+        vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
     )
 ]
 
@@ -344,12 +340,7 @@ genesis_block_header = BlockHeader(
     target_bits=0xFFFF001D,
     nonce=2083236893,
 )
-genesis_block = Block(
-    header=genesis_block_header, transactions=genesis_block_transaction
-)
+genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
 
 if __name__ == "__main__":
     print(genesis_block)
-    logger.info("Hello")
-    logger.error("Hola")
-    logger.critical("WTF")
