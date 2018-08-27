@@ -13,13 +13,13 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Union, Dict, Any
 import hashlib
 import datetime
+import utils.logger
 
 path.append("..")
 from utils.dataclass_json import DataClassJson
 from utils.storage import *
 import utils.constants as consts
 from utils.logger import logger
-
 
 
 @dataclass
@@ -150,11 +150,8 @@ class Block(DataClassJson):
 
     def is_valid(self, target_difficulty: int) -> bool:
         # Block should be of valid size
-        if (
-            getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024
-            or len(self.transactions) == 0
-        ):
-            print("Block Size Exceeded")
+        if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or len(self.transactions) == 0:
+            logger.debug("Block Size Exceeded")
             return False
 
         # Block hash should have proper difficulty
@@ -166,26 +163,24 @@ class Block(DataClassJson):
             else:
                 pow += 1
         if pow < target_difficulty:
-            print("POW not valid")
+            logger.debug("POW not valid")
             return False
 
         # Block should not have been mined more than 2 hours in the future
         difference = get_time_difference_from_now_secs(self.header.timestamp)
         if difference > consts.BLOCK_MAX_TIME_FUTURE_SECS:
-            print("Time Stamp not valid")
+            logger.debug("Time Stamp not valid")
             return False
 
         # Reject if timestamp is the median time of the last 11 blocks or before
         # TODO
 
         # The first and only first transaction should be coinbase
-        transaction_status = [
-            transaction.is_coinbase for transaction in self.transactions
-        ]
+        transaction_status = [transaction.is_coinbase for transaction in self.transactions]
         first_transaction = transaction_status[0]
         other_transactions = transaction_status[1:]
         if not first_transaction or any(other_transactions):
-            print("Coinbase transaction not valid")
+            logger.debug("Coinbase transaction not valid")
             return False
 
         # Make sure each transaction is valid
@@ -193,7 +188,7 @@ class Block(DataClassJson):
 
         # Verify merkle hash
         if self.header.merkle_root != merkle_hash(self.transactions):
-            print("Merkle Hash failed")
+            logger.debug("Merkle Hash failed")
             return False
         return True
 
@@ -203,12 +198,13 @@ class Utxo:
     # Mapping from string repr of SingleOutput to List[TxOut, Blockheader]
     utxo: Dict[str, List[Any]] = field(default_factory=dict)
 
+
     def get(self, so: SingleOutput) -> Optional[List[Any]]:
         so_str = so.to_json()
         if so_str in self.utxo:
             return self.utxo[so_str]
-        print(so_str)
-        print(self.utxo)
+        logger.debug(so_str)
+        logger.debug(self.utxo)
         return None
 
     def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader):
@@ -260,29 +256,37 @@ class Chain:
                     self.utxo.remove(so)
             # Add new unspent outputs
             for touput in t.vout:
-                self.utxo.set(
-                    SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header
-                )
+                self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header)
 
     def add_block(self, block: Block):
-        # validate function which checks utxo and signing
+        # TODO validate function which checks utxo and signing
         if not block.is_valid(get_target_difficulty(self)):
-            print("Block is not valid")
+            logger.debug("Block is not valid")
             return False
 
-        if (
-            len(self.header_list) == 0
-            or dhash(self.header_list[-1]) == block.header.prev_block_hash
-        ):
+        if len(self.header_list) == 0 or dhash(self.header_list[-1]) == block.header.prev_block_hash:
             self.header_list.append(block.header)
             add_block_to_db(block)
             self.update_utxo(block)
             return True
-        print("No idea what happened")
+        logger.debug("No idea what happened")
         return False
+    
+    def get_target_difficulty(chain: Chain) -> int:
+        # TODO
+        return 0
 
 
 def get_time_difference_from_now_secs(timestamp: int) -> int:
+    """Get time diference from current time in seconds
+    
+    Arguments:
+        timestamp {int} -- Time from which difference is calculated
+    
+    Returns:
+        int -- Time difference in seconds 
+    """
+
     now = datetime.datetime.now()
     mtime = datetime.datetime.fromtimestamp(timestamp)
     difference = mtime - now
@@ -317,9 +321,6 @@ def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
 
 
-def get_target_difficulty(chain: Chain) -> int:
-    # TODO
-    return 0
 
 
 genesis_block_transaction = [
@@ -329,9 +330,7 @@ genesis_block_transaction = [
         timestamp=1,
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig="0", pub_key="", sequence=0)},
-        vout={
-            0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
-        },
+        vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
     )
 ]
 
@@ -344,12 +343,7 @@ genesis_block_header = BlockHeader(
     target_bits=0xFFFF001D,
     nonce=2083236893,
 )
-genesis_block = Block(
-    header=genesis_block_header, transactions=genesis_block_transaction
-)
+genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
 
 if __name__ == "__main__":
-    print(genesis_block)
-    logger.info("Hello")
-    logger.error("Hola")
-    logger.critical("WTF")
+    logger.debug(genesis_block)

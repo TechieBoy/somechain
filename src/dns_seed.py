@@ -43,7 +43,7 @@ def peer_list():
             peer_list.append(entry)
     if (ADD_ENTRY):
         PEER_LIST.append({'ip': new_ip, 'port': new_port, 'time': time.time()})
-    print(PEER_LIST)
+    logger.debug(PEER_LIST)
     return jsonify(peer_list)
 
 
