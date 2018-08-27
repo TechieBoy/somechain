@@ -276,6 +276,9 @@ class Chain:
         # TODO
         return 0
 
+    def is_proper_difficulty(bhash: str) -> bool:
+        return True
+
 
 def get_time_difference_from_now_secs(timestamp: int) -> int:
     """Get time diference from current time in seconds

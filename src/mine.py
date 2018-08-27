@@ -23,5 +23,6 @@ def mine(chain: Chain):
             nonce=n,
         )
         bhash = dhash(block_header)
+        chain.is_proper_difficulty(bhash)
         if bhash < chain.get_target_difficulty(chain):
             pass
