@@ -1,13 +1,17 @@
-import utils.constants as consts
+import sys
 import requests
 import random
 from flask import Flask, jsonify, request
-from core import *
 import time
 import json
 import threading
-from utils.storage import *
 from typing import Dict, Any
+
+sys.path.append("..")
+from core import *
+from utils.storage import *
+import utils.constants as consts
+
 
 app = Flask(__name__)
 
@@ -82,8 +86,9 @@ def send_block_hashes():
 
 if __name__ == "__main__":
 
-    add_block_to_chain(genesis_block)
-    add_block_to_db(genesis_block)
+    ACTIVE_CHAIN = Chain()
+
+    ACTIVE_CHAIN.add_block(genesis_block)
 
     # # ORDER
     # Get list of peers ✓
@@ -99,14 +104,14 @@ if __name__ == "__main__":
         # peer_list.append({'ip': "localhost", 'port': consts.MINER_SERVER_PORT, 'time': time.time()})
         for peer in peer_list:
             # TODO delete the peer if could not establish a connection.
-            (get_peer_url(peer))
+            print(get_peer_url(peer))
             data = greet_peer(peer)
             # Update the peer data in the peer list with the new data recieved from the peer.
             peer.update(data)
-        (peer_list)
+        print(peer_list)
         sync(peer_list)
-        # (ACTIVE_CHAIN)
-        # (get_block_from_db(dhash(ACTIVE_CHAIN[0])))
+        # print(ACTIVE_CHAIN)
+        # print(get_block_from_db(dhash(ACTIVE_CHAIN[0])))
 
     t = threading.Thread(target=func)
     t.start()

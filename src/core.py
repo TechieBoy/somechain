@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Union, Dict, Any
 import hashlib
 import datetime
-import utils.logger
 
 path.append("..")
 from utils.dataclass_json import DataClassJson
@@ -260,7 +259,7 @@ class Chain:
 
     def add_block(self, block: Block):
         # TODO validate function which checks utxo and signing
-        if not block.is_valid(get_target_difficulty(self)):
+        if not block.is_valid(self.get_target_difficulty()):
             logger.debug("Block is not valid")
             return False
 
@@ -272,11 +271,12 @@ class Chain:
         logger.debug("No idea what happened")
         return False
     
-    def get_target_difficulty(chain: Chain) -> int:
+    def get_target_difficulty(self) -> int:
         # TODO
         return 0
 
-    def is_proper_difficulty(bhash: str) -> bool:
+    def is_proper_difficulty(self, bhash: str) -> bool:
+        # TODO
         return True
 
 
