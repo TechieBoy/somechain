@@ -1,3 +1,7 @@
+# LOGGING CONSTANTS
+LOG_DIRECTORY = "log/"
+DATE_FORMAT = "%d %b %H:%M:%S"
+
 # DNS SEED CONSTANTS
 ENTRY_DURATION = 60 * 60 * 24 * 1  # duration in seconds
 SEED_SERVER_URL = "http://localhost:8080"

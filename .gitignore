@@ -5,12 +5,18 @@ __pycache__/
 
 # IDE Files
 .idea/
+.vscode/
 
 # C extensions
 *.so
 
-# Distribution / packaging
+# DB files
 *.db
+
+# Logging Files
+*.log
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -107,5 +113,3 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-#vscode
-.vscode/

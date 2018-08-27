@@ -10,14 +10,16 @@ TODO:
 
 from sys import getsizeof, path
 from dataclasses import dataclass, field
-from typing import Optional, List, Union, Dict
+from typing import Optional, List, Union, Dict, Any
 import hashlib
-from utils.dataclass_json import DataClassJson
-from utils.storage import *
-import utils.constants as consts
 import datetime
 
 path.append("..")
+from utils.dataclass_json import DataClassJson
+from utils.storage import *
+import utils.constants as consts
+from utils.logger import logger
+
 
 
 @dataclass
@@ -198,10 +200,10 @@ class Block(DataClassJson):
 
 @dataclass
 class Utxo:
-    # Mapping from string repr of SingleOutput to TxOut
-    utxo: Dict[str, List[TxOut, BlockHeader]] = field(default_factory=dict)
+    # Mapping from string repr of SingleOutput to List[TxOut, Blockheader]
+    utxo: Dict[str, List[Any]] = field(default_factory=dict)
 
-    def get(self, so: SingleOutput) -> Optional[List[TxOut, BlockHeader]]:
+    def get(self, so: SingleOutput) -> Optional[List[Any]]:
         so_str = so.to_json()
         if so_str in self.utxo:
             return self.utxo[so_str]
@@ -348,3 +350,6 @@ genesis_block = Block(
 
 if __name__ == "__main__":
     print(genesis_block)
+    logger.info("Hello")
+    logger.error("Hola")
+    logger.critical("WTF")
