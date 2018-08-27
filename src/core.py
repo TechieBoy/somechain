@@ -151,7 +151,7 @@ class Block(DataClassJson):
     def is_valid(self, target_difficulty: int) -> bool:
         # Block should be of valid size
         if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or len(self.transactions) == 0:
-            logger.info("Block Size Exceeded")
+            logger.debug("Block Size Exceeded")
             return False
 
         # Block hash should have proper difficulty
@@ -163,13 +163,13 @@ class Block(DataClassJson):
             else:
                 pow += 1
         if pow < target_difficulty:
-            logger.info("POW not valid")
+            logger.debug("POW not valid")
             return False
 
         # Block should not have been mined more than 2 hours in the future
         difference = get_time_difference_from_now_secs(self.header.timestamp)
         if difference > consts.BLOCK_MAX_TIME_FUTURE_SECS:
-            logger.info("Time Stamp not valid")
+            logger.debug("Time Stamp not valid")
             return False
 
         # Reject if timestamp is the median time of the last 11 blocks or before
@@ -180,7 +180,7 @@ class Block(DataClassJson):
         first_transaction = transaction_status[0]
         other_transactions = transaction_status[1:]
         if not first_transaction or any(other_transactions):
-            logger.info("Coinbase transaction not valid")
+            logger.debug("Coinbase transaction not valid")
             return False
 
         # Make sure each transaction is valid
@@ -188,7 +188,7 @@ class Block(DataClassJson):
 
         # Verify merkle hash
         if self.header.merkle_root != merkle_hash(self.transactions):
-            logger.info("Merkle Hash failed")
+            logger.debug("Merkle Hash failed")
             return False
         return True
 
@@ -202,8 +202,8 @@ class Utxo:
         so_str = so.to_json()
         if so_str in self.utxo:
             return self.utxo[so_str]
-        logger.info(so_str)
-        logger.info(self.utxo)
+        logger.debug(so_str)
+        logger.debug(self.utxo)
         return None
 
     def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader):
@@ -260,7 +260,7 @@ class Chain:
     def add_block(self, block: Block):
         # TODO validate function which checks utxo and signing
         if not block.is_valid(get_target_difficulty(self)):
-            logger.info("Block is not valid")
+            logger.debug("Block is not valid")
             return False
 
         if len(self.header_list) == 0 or dhash(self.header_list[-1]) == block.header.prev_block_hash:
@@ -268,7 +268,7 @@ class Chain:
             add_block_to_db(block)
             self.update_utxo(block)
             return True
-        logger.info("No idea what happened")
+        logger.debug("No idea what happened")
         return False
 
 
@@ -344,4 +344,4 @@ genesis_block_header = BlockHeader(
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
 
 if __name__ == "__main__":
-    logger.info(genesis_block)
+    logger.debug(genesis_block)
