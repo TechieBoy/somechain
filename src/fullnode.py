@@ -45,9 +45,8 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
 
 
 def sync(peer_list):
-    max_peer = max(peer_list, key=lambda k: k["blockheight"])
-    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": len(ACTIVE_CHAIN)})
-    print(r.text)
+    max_peer = max(peer_list, key=lambda k: k['blockheight'])
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={'myheight': len(ACTIVE_CHAIN)})
     hash_list = json.loads(r.text)
     for hhash in hash_list:
         block = receive_block_from_peer(random.choice(peer_list), hhash)
@@ -100,14 +99,14 @@ if __name__ == "__main__":
         # peer_list.append({'ip': "localhost", 'port': consts.MINER_SERVER_PORT, 'time': time.time()})
         for peer in peer_list:
             # TODO delete the peer if could not establish a connection.
-            print(get_peer_url(peer))
+            (get_peer_url(peer))
             data = greet_peer(peer)
             # Update the peer data in the peer list with the new data recieved from the peer.
             peer.update(data)
-        print(peer_list)
+        (peer_list)
         sync(peer_list)
-        # print(ACTIVE_CHAIN)
-        # print(get_block_from_db(dhash(ACTIVE_CHAIN[0])))
+        # (ACTIVE_CHAIN)
+        # (get_block_from_db(dhash(ACTIVE_CHAIN[0])))
 
     t = threading.Thread(target=func)
     t.start()

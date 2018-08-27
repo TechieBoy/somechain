@@ -80,9 +80,9 @@ if __name__ == "__main__":
     ACTIVE_CHAIN = Chain()
 
     result = ACTIVE_CHAIN.add_block(genesis_block)
-    print(result)
+    (result)
 
-    print(ACTIVE_CHAIN.utxo)
+    (ACTIVE_CHAIN.utxo)
 
     # The singleOutput for first coinbase transaction in genesis block
     so = SingleOutput(txid=dhash(genesis_block_transaction[0]), vout=0)
@@ -126,8 +126,8 @@ if __name__ == "__main__":
     first_block = Block(header=first_block_header, transactions=first_block_transaction)
 
     result = ACTIVE_CHAIN.add_block(first_block)
-    print(result)
-    print(ACTIVE_CHAIN.utxo)
+    (result)
+    (ACTIVE_CHAIN.utxo)
 
     # # ORDER
     # Get list of peers ✓
