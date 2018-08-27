@@ -1,9 +1,9 @@
 # DNS SEED CONSTANTS
-ENTRY_DURATION = 60*60*24*1 #duration in seconds
+ENTRY_DURATION = 60 * 60 * 24 * 1  # duration in seconds
 SEED_SERVER_URL = "http://localhost:8080"
 SEED_SERVER_PORT = 8080
 
-#MINER CONSTANTS
+# MINER CONSTANTS
 MINER_SERVER_PORT = 9000
 MINER_VERSION = "0.1"
 
@@ -12,3 +12,7 @@ BLOCK_DB_LOC = "db/block.db"
 
 # BLOCKCHAIN CONSTANTS
 MAX_BLOCK_SIZE_KB = 4096
+MAX_SATOSHIS_POSSIBLE = 21_000_000
+
+# A block cannot have timestamp greater than this time in the future
+BLOCK_MAX_TIME_FUTURE_SECS = 2 * 60 * 60

@@ -70,8 +70,7 @@ def _is_supported_generic(type_):
         is_collection = _issubclass_safe(type_.__origin__, Collection)
     except AttributeError:
         return False
-    is_optional = (_issubclass_safe(type_, Optional)
-                   or _hasargs(type_, type(None)))
+    is_optional = _issubclass_safe(type_, Optional) or _hasargs(type_, type(None))
     return is_collection or is_optional
 
 

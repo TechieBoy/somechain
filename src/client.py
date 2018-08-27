@@ -6,7 +6,7 @@ TODO:
 
 import secrets
 import hashlib
-from typing import Tuple, Any
+from typing import Tuple
 from utils.secp256k1 import point_mul, b58_encode
 
 
@@ -20,11 +20,15 @@ class Wallet:
 
     # See chp. 4 of Mastering Bitcoin
     def generate_address(self) -> Tuple[str, str]:
-        q = point_mul(int.from_bytes(self.private_key, byteorder='big'))
-        public_key = b"\x04" + q[0].to_bytes(32, byteorder='big') + q[1].to_bytes(32, byteorder='big')
+        q = point_mul(int.from_bytes(self.private_key, byteorder="big"))
+        public_key = (
+            b"\x04"
+            + q[0].to_bytes(32, byteorder="big")
+            + q[1].to_bytes(32, byteorder="big")
+        )
         hsh = hashlib.sha256(public_key).digest()
 
-        ripemd160hash = hashlib.new('ripemd160')
+        ripemd160hash = hashlib.new("ripemd160")
         ripemd160hash.update(hsh)
         ripemd160 = ripemd160hash.digest()
 

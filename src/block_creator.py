@@ -14,13 +14,13 @@ BLOCK_DB = None
 
 
 def fetch_peer_list():
-    r = requests.post(consts.SEED_SERVER_URL, data={'port': consts.MINER_SERVER_PORT})
+    r = requests.post(consts.SEED_SERVER_URL, data={"port": consts.MINER_SERVER_PORT})
     peer_list = json.loads(r.text)
     return peer_list
 
 
 def get_peer_url(peer: Dict[str, Any]) -> str:
-    return "http://" + str(peer['ip']) + ':' + str(peer['port'])
+    return "http://" + str(peer["ip"]) + ":" + str(peer["port"])
 
 
 def greet_peer(peer: Dict[str, Any]) -> List:
@@ -30,13 +30,16 @@ def greet_peer(peer: Dict[str, Any]) -> List:
 
 
 def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
-    r = requests.post(get_peer_url(peer), data={'header_hash': header_hash})
+    r = requests.post(get_peer_url(peer), data={"header_hash": header_hash})
     return Block.from_json(r.text)
 
 
 def sync(peer_list):
-    max_peer = max(peer_list, key=lambda k: k['blockheight'])
-    r = requests.post(get_peer_url(max_peer) + "/getblockhashes/", data={'myheight': len(ACTIVE_CHAIN)})
+    max_peer = max(peer_list, key=lambda k: k["blockheight"])
+    r = requests.post(
+        get_peer_url(max_peer) + "/getblockhashes/",
+        data={"myheight": len(ACTIVE_CHAIN)},
+    )
     hash_list = json.loads(r.text)
     for hhash in hash_list:
         peer_url = get_peer_url(random.choice(peer_list)) + "/getblock/"
@@ -51,24 +54,21 @@ def sync(peer_list):
 
 @app.route("/")
 def hello():
-    data = {
-        'version': consts.MINER_VERSION,
-        'blockheight': len(ACTIVE_CHAIN)
-    }
+    data = {"version": consts.MINER_VERSION, "blockheight": len(ACTIVE_CHAIN)}
     return jsonify(data)
 
 
-@app.route("/getblock", methods=['POST'])
+@app.route("/getblock", methods=["POST"])
 def getblock():
-    hhash = request.form.get('headerhash')
+    hhash = request.form.get("headerhash")
     if hhash:
         return get_block_from_db(hhash)
     return "Hash hi nahi bheja LOL"
 
 
-@app.route("/getblockhashes", methods=['POST'])
+@app.route("/getblockhashes", methods=["POST"])
 def send_block_hashes():
-    peer_height = int(request.form.get('myheight'))
+    peer_height = int(request.form.get("myheight"))
     hash_list = []
     for i in range(peer_height + 1, len(ACTIVE_CHAIN)):
         hash_list.append(dhash(ACTIVE_CHAIN[i]))
@@ -87,34 +87,42 @@ if __name__ == "__main__":
     # The singleOutput for first coinbase transaction in genesis block
     so = SingleOutput(txid=dhash(genesis_block_transaction[0]), vout=0)
 
-    first_block_transaction = [Transaction(version=1,
-                                           locktime=0,
-                                           timestamp=2,
-                                           is_coinbase=True,
-                                           vin={
-                                             0: TxIn(payout=None, sig='0', pub_key='', sequence=0)
-                                           },
-                                           vout={
-                                             0: TxOut(amount=5000000000,
-                                                      address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')
-                                           }),
-                               Transaction(version=1,
-                                           locktime=0,
-                                           timestamp=3,
-                                           is_coinbase=False,
-                                           vin={
-                                               0: TxIn(payout=so, sig='0', pub_key='', sequence=0)
-                                           },
-                                           vout={
-                                               0: TxOut(amount=1000000000,
-                                                        address='1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')
-                                           }),
+    first_block_transaction = [
+        Transaction(
+            version=1,
+            locktime=0,
+            timestamp=2,
+            is_coinbase=True,
+            vin={0: TxIn(payout=None, sig="0", pub_key="", sequence=0)},
+            vout={
+                0: TxOut(
+                    amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+                )
+            },
+        ),
+        Transaction(
+            version=1,
+            locktime=0,
+            timestamp=3,
+            is_coinbase=False,
+            vin={0: TxIn(payout=so, sig="0", pub_key="", sequence=0)},
+            vout={
+                0: TxOut(
+                    amount=1000000000, address="1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+                )
+            },
+        ),
+    ]
 
-                            ]
-
-    first_block_header = BlockHeader(version=1, prev_block_hash=dhash(genesis_block_header), height=1,
-                                       merkle_root=merkle_hash(first_block_transaction),
-                                       timestamp=1231006505, target_bits=0xFFFF001D, nonce=2083236893)
+    first_block_header = BlockHeader(
+        version=1,
+        prev_block_hash=dhash(genesis_block_header),
+        height=1,
+        merkle_root=merkle_hash(first_block_transaction),
+        timestamp=1231006505,
+        target_bits=0xFFFF001D,
+        nonce=2083236893,
+    )
     first_block = Block(header=first_block_header, transactions=first_block_transaction)
 
     result = ACTIVE_CHAIN.add_block(first_block)

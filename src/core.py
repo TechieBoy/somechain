@@ -7,21 +7,23 @@ TODO:
     Storage
 
 """
-import sys
-sys.path.append("..")
 
-from dataclasses import dataclass
+from sys import getsizeof, path
+from dataclasses import dataclass, field
 from typing import Optional, List, Union, Dict
 import hashlib
-from src.utils.dataclass_json import DataClassJson
-from src.utils.storage import *
-import src.utils.constants as consts
+from utils.dataclass_json import DataClassJson
+from utils.storage import *
+import utils.constants as consts
 import datetime
+
+path.append("..")
 
 
 @dataclass
 class SingleOutput(DataClassJson):
     """ References a single output """
+
     # The transaction id which contains this output
     txid: str
 
@@ -32,6 +34,7 @@ class SingleOutput(DataClassJson):
 @dataclass
 class TxOut(DataClassJson):
     """ A single Transaction Output """
+
     # The amount in satoshis
     amount: int
 
@@ -42,6 +45,7 @@ class TxOut(DataClassJson):
 @dataclass
 class TxIn(DataClassJson):
     """ A single Transaction Input """
+
     # The UTXO we will be spending
     # Can be None for coinbase tx
     payout: Optional[SingleOutput]
@@ -61,6 +65,28 @@ class Transaction(DataClassJson):
     def __str__(self):
         return self.to_json()
 
+    def is_valid(self):
+
+        # No empty inputs or outputs
+        if len(self.vin) == 0 or len(self.vout) == 0:
+            return False
+
+        # Transaction size should not exceed max block size
+        if getsizeof(str(self)) > consts.MAX_BLOCK_SIZE_KB * 1024:
+            return False
+
+        # All outputs in legal money range
+        for t in self.vout:
+            if t.amount > consts.MAX_SATOSHIS_POSSIBLE or t.amount < 0:
+                return False
+
+        # Verify locktime
+        difference = get_time_difference_from_now_secs(self.locktime)
+        if difference > 0:
+            return False
+
+        return True
+
     # Whether this transaction is coinbase transaction
     is_coinbase: bool
 
@@ -70,8 +96,7 @@ class Transaction(DataClassJson):
     # Timestamp for this transaction
     timestamp: int
 
-    # The earliest block(< 500000000) or
-    # earliest time(Unix timestamp >500000000)
+    # Earliest time(Unix timestamp >500000000)
     # when this transaction may be added to the block chain.
     locktime: int
 
@@ -86,14 +111,11 @@ class Transaction(DataClassJson):
 class BlockHeader(DataClassJson):
     """ The header of a block """
 
-    def __str__(self):
-        return f"{self.version}|{self.prev_block_hash}|{self.merkle_root}|{self.timestamp}|{self.target_bits}|{self.nonce}"
-
     # Version
     version: int
 
     # Block Height
-    height: Optional[int]
+    height: Optional[int] = field(repr=False)
 
     # A reference to the hash of the previous block
     prev_block_hash: Optional[str]
@@ -125,11 +147,11 @@ class Block(DataClassJson):
         return dhash(self.header)
 
     def is_valid(self, target_difficulty: int) -> bool:
-        from sys import getsizeof
-
         # Block should be of valid size
-        if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or \
-                len(self.transactions) == 0:
+        if (
+            getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024
+            or len(self.transactions) == 0
+        ):
             print("Block Size Exceeded")
             return False
 
@@ -137,7 +159,7 @@ class Block(DataClassJson):
         hhash = str(self)
         pow = 0
         for c in hhash:
-            if not c == '0':
+            if not c == "0":
                 break
             else:
                 pow += 1
@@ -146,10 +168,8 @@ class Block(DataClassJson):
             return False
 
         # Block should not have been mined more than 2 hours in the future
-        now = datetime.datetime.now()
-        mined_time = datetime.datetime.fromtimestamp(self.header.timestamp)
-        difference = mined_time - now
-        if difference.total_seconds() > 2 * 60 * 60:
+        difference = get_time_difference_from_now_secs(self.header.timestamp)
+        if difference > consts.BLOCK_MAX_TIME_FUTURE_SECS:
             print("Time Stamp not valid")
             return False
 
@@ -157,7 +177,9 @@ class Block(DataClassJson):
         # TODO
 
         # The first and only first transaction should be coinbase
-        transaction_status = [transaction.is_coinbase for transaction in self.transactions]
+        transaction_status = [
+            transaction.is_coinbase for transaction in self.transactions
+        ]
         first_transaction = transaction_status[0]
         other_transactions = transaction_status[1:]
         if not first_transaction or any(other_transactions):
@@ -173,12 +195,13 @@ class Block(DataClassJson):
             return False
         return True
 
+
 @dataclass
 class Utxo:
     # Mapping from string repr of SingleOutput to TxOut
-    utxo: Dict[str, TxOut] = None
+    utxo: Dict[str, List[TxOut, BlockHeader]] = field(default_factory=dict)
 
-    def get(self, so: SingleOutput)-> [TxOut, None]:
+    def get(self, so: SingleOutput) -> Optional[List[TxOut, BlockHeader]]:
         so_str = so.to_json()
         if so_str in self.utxo:
             return self.utxo[so_str]
@@ -186,19 +209,16 @@ class Utxo:
         print(self.utxo)
         return None
 
-    def set(self, so: SingleOutput, txout: TxOut):
-        if not self.utxo:
-            self.utxo = {}
+    def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader):
         so_str = so.to_json()
-        self.utxo[so_str] = txout
+        self.utxo[so_str] = [txout, blockheader]
 
-    def remove(self, so: SingleOutput)-> bool:
+    def remove(self, so: SingleOutput) -> bool:
         so_str = so.to_json()
         if so_str in self.utxo:
             del self.utxo[so_str]
             return True
         return False
-
 
 
 @dataclass
@@ -207,7 +227,7 @@ class Chain:
     length: int = 0
 
     # The list of blocks
-    header_list: List[BlockHeader] = None
+    header_list: List[BlockHeader] = field(default_factory=list)
 
     # The UTXO Set
     utxo: Utxo = Utxo()
@@ -238,24 +258,33 @@ class Chain:
                     self.utxo.remove(so)
             # Add new unspent outputs
             for touput in t.vout:
-                self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput])
+                self.utxo.set(
+                    SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header
+                )
 
     def add_block(self, block: Block):
+        # validate function which checks utxo and signing
         if not block.is_valid(get_target_difficulty(self)):
             print("Block is not valid")
             return False
 
-        if not self.header_list:
-            self.header_list = []
-
-        if len(self.header_list) == 0 or \
-                dhash(self.header_list[-1]) == block.header.prev_block_hash:
+        if (
+            len(self.header_list) == 0
+            or dhash(self.header_list[-1]) == block.header.prev_block_hash
+        ):
             self.header_list.append(block.header)
             add_block_to_db(block)
             self.update_utxo(block)
             return True
         print("No idea what happened")
         return False
+
+
+def get_time_difference_from_now_secs(timestamp: int) -> int:
+    now = datetime.datetime.now()
+    mtime = datetime.datetime.fromtimestamp(timestamp)
+    difference = mtime - now
+    return difference.total_seconds()
 
 
 def merkle_hash(transactions: List[Transaction]) -> str:
@@ -291,22 +320,31 @@ def get_target_difficulty(chain: Chain) -> int:
     return 0
 
 
-genesis_block_transaction = [Transaction(version=1,
-                                         locktime=0,
-                                         timestamp=1,
-                                         is_coinbase=True,
-                                         vin={
-                                             0: TxIn(payout=None, sig='0', pub_key='', sequence=0)
-                                         },
-                                         vout={
-                                             0: TxOut(amount=5000000000, address='1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')
-                                         }),
-                             ]
+genesis_block_transaction = [
+    Transaction(
+        version=1,
+        locktime=0,
+        timestamp=1,
+        is_coinbase=True,
+        vin={0: TxIn(payout=None, sig="0", pub_key="", sequence=0)},
+        vout={
+            0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
+        },
+    )
+]
 
-genesis_block_header = BlockHeader(version=1, prev_block_hash=None, height=1,
-                                   merkle_root=merkle_hash(genesis_block_transaction),
-                                   timestamp=1231006505, target_bits=0xFFFF001D, nonce=2083236893)
-genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
+genesis_block_header = BlockHeader(
+    version=1,
+    prev_block_hash=None,
+    height=1,
+    merkle_root=merkle_hash(genesis_block_transaction),
+    timestamp=1231006505,
+    target_bits=0xFFFF001D,
+    nonce=2083236893,
+)
+genesis_block = Block(
+    header=genesis_block_header, transactions=genesis_block_transaction
+)
 
-if __name__== "__main__":
+if __name__ == "__main__":
     print(genesis_block)
