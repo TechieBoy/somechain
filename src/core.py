@@ -197,6 +197,7 @@ class Utxo:
     # Mapping from string repr of SingleOutput to List[TxOut, Blockheader]
     utxo: Dict[str, List[Any]] = field(default_factory=dict)
 
+
     def get(self, so: SingleOutput) -> Optional[List[Any]]:
         so_str = so.to_json()
         if so_str in self.utxo:
@@ -268,7 +269,13 @@ class Chain:
             self.update_utxo(block)
             return True
         print("No idea what happened")
+
+        # TODO update length
         return False
+    
+    def get_target_difficulty(chain: Chain) -> int:
+        # TODO
+        return 0
 
 
 def get_time_difference_from_now_secs(timestamp: int) -> int:
@@ -315,9 +322,6 @@ def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
 
 
-def get_target_difficulty(chain: Chain) -> int:
-    # TODO
-    return 0
 
 
 genesis_block_transaction = [
