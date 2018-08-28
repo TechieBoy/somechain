@@ -10,15 +10,15 @@ TODO:
 
 from sys import getsizeof, path
 from dataclasses import dataclass, field
-from typing import Optional, List, Union, Dict, Any
-import hashlib
-import datetime
+from typing import Optional, List, Dict, Any
 
 path.append("..")
 from utils.dataclass_json import DataClassJson
-from utils.storage import *
+from utils.storage import get_block_from_db, add_block_to_db
 import utils.constants as consts
 from utils.logger import logger
+
+from utils.utils import merkle_hash, dhash, get_time_difference_from_now_secs
 
 
 @dataclass
@@ -185,7 +185,6 @@ class Utxo:
     # Mapping from string repr of SingleOutput to List[TxOut, Blockheader]
     utxo: Dict[str, List[Any]] = field(default_factory=dict)
 
-
     def get(self, so: SingleOutput) -> Optional[List[Any]]:
         so_str = so.to_json()
         if so_str in self.utxo:
@@ -266,7 +265,7 @@ class Chain:
             return True
         logger.debug("No idea what happened")
         return False
-    
+
     def update_target_difficulty(self):
         dui = consts.BLOCK_DIFFICULTY_UPDATE_INTERVAL
         length = len(self.header_list)
@@ -291,52 +290,8 @@ class Chain:
         return True
 
 
-def get_time_difference_from_now_secs(timestamp: int) -> int:
-    """Get time diference from current time in seconds
-    
-    Arguments:
-        timestamp {int} -- Time from which difference is calculated
-    
-    Returns:
-        int -- Time difference in seconds 
-    """
-
-    now = datetime.datetime.now()
-    mtime = datetime.datetime.fromtimestamp(timestamp)
-    difference = mtime - now
-    return difference.total_seconds()
-
-
-def merkle_hash(transactions: List[Transaction]) -> str:
-    """ Computes and returns the merkle tree root for a list of transactions """
-    if len(transactions) == 1:
-        return dhash(transactions[0])
-    if len(transactions) % 2 != 0:
-        transactions = transactions + [transactions[-1]]
-    transactions_hash = list(map(dhash, transactions))
-
-    def recursive_merkle_hash(t: List[str]) -> str:
-        if len(t) == 1:
-            return t[0]
-        t_child = []
-        for i in range(0, len(t), 2):
-            new_hash = dhash(t[i] + t[i + 1])
-            t_child.append(new_hash)
-        return recursive_merkle_hash(t_child)
-
-    return recursive_merkle_hash(transactions_hash)
-
-
-def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
-    """ Double sha256 hash """
-    if not isinstance(s, str):
-        s = str(s)
-    s = s.encode()
-    return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
-
-
-
-
+# TODO move genesis block creation somewhere else
+# This file should not contain any executing code
 genesis_block_transaction = [
     Transaction(
         version=1,
@@ -347,7 +302,6 @@ genesis_block_transaction = [
         vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
     )
 ]
-
 genesis_block_header = BlockHeader(
     version=1,
     prev_block_hash=None,

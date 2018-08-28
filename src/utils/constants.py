@@ -24,6 +24,6 @@ MAX_SATOSHIS_POSSIBLE = 21_000_000
 # A block cannot have timestamp greater than this time in the future
 BLOCK_MAX_TIME_FUTURE_SECS = 2 * 60 * 60
 
-BLOCK_DIFFICULTY_UPDATE_INTERVAL = 1024 # number of blocks
-AVERAGE_BLOCK_MINE_INTERVAL = 10*60 # seconds
+BLOCK_DIFFICULTY_UPDATE_INTERVAL = 1024  # number of blocks
+AVERAGE_BLOCK_MINE_INTERVAL = 10 * 60  # seconds
 MAXIMUM_TARGET_DIFFICULTY = 255

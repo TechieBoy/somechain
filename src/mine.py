@@ -1,21 +1,40 @@
 from core import Transaction, Block, BlockHeader, Chain, dhash, merkle_hash
 import constants as consts
-from typing import List
+from typing import List, Set
 import time
 import copy
 
-mempool: List[Transaction] = []
+mempool: Set[str] = set()
+
+# TODO how will this work across processes?!
+mining_interrupted = False
 
 
 def add_transaction(transaction: Transaction):
     if transaction.is_valid():
-        mempool.append(transaction)
+        mempool.add(str(transaction))
+
+
+def remove_transactions_from_mempool(block: Block):
+    """Removes transaction from the mempool based on a new received block
+    
+    Arguments:
+        block {Block} -- The block which is received
+    """
+
+    global mempool
+    mempool = set([x for x in mempool if x not in block.transactions])
 
 
 def mine(chain: Chain) -> Block:
-    # TODO pick and choose which transactions to add
-    c_pool = copy.deepcopy(mempool)
+    # TODO pick and choose which transactions to add for max profit
+    # Also avoid exceeding the max size
+    c_pool = list(copy.deepcopy(mempool))
+    c_pool = list(map(Transaction.from_json, c_pool))
     for n in range(2 ** 64):
+        if mining_interrupted:
+            # TODO update current mempool with transactions of new block
+            pass
         block_header = BlockHeader(
             version=consts.MINER_VERSION,
             height=chain.length + 1,
@@ -27,5 +46,5 @@ def mine(chain: Chain) -> Block:
         )
         bhash = dhash(block_header)
         if chain.is_proper_difficulty(bhash):
+            # TODO add coinbase with transaction fees
             return Block(header=block_header, transactions=c_pool)
-            

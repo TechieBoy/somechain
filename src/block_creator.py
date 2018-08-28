@@ -3,8 +3,9 @@ import json
 import requests
 import random
 from flask import Flask, jsonify, request
-from core import *
-from typing import Dict, Any
+from core import Block
+from typing import Dict, List, Any, TYPE_CHECKING
+from utils.utils import merkle_hash, dhash
 
 app = Flask(__name__)
 
@@ -36,10 +37,7 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
 
 def sync(peer_list):
     max_peer = max(peer_list, key=lambda k: k["blockheight"])
-    r = requests.post(
-        get_peer_url(max_peer) + "/getblockhashes/",
-        data={"myheight": len(ACTIVE_CHAIN)},
-    )
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes/", data={"myheight": len(ACTIVE_CHAIN)})
     hash_list = json.loads(r.text)
     for hhash in hash_list:
         peer_url = get_peer_url(random.choice(peer_list)) + "/getblock/"
@@ -94,11 +92,7 @@ if __name__ == "__main__":
             timestamp=2,
             is_coinbase=True,
             vin={0: TxIn(payout=None, sig="0", pub_key="", sequence=0)},
-            vout={
-                0: TxOut(
-                    amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
-                )
-            },
+            vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
         ),
         Transaction(
             version=1,
@@ -106,11 +100,7 @@ if __name__ == "__main__":
             timestamp=3,
             is_coinbase=False,
             vin={0: TxIn(payout=so, sig="0", pub_key="", sequence=0)},
-            vout={
-                0: TxOut(
-                    amount=1000000000, address="1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
-                )
-            },
+            vout={0: TxOut(amount=1000000000, address="1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
         ),
     ]
 
