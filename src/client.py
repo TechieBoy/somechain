@@ -21,11 +21,7 @@ class Wallet:
     # See chp. 4 of Mastering Bitcoin
     def generate_address(self) -> Tuple[str, str]:
         q = point_mul(int.from_bytes(self.private_key, byteorder="big"))
-        public_key = (
-            b"\x04"
-            + q[0].to_bytes(32, byteorder="big")
-            + q[1].to_bytes(32, byteorder="big")
-        )
+        public_key = b"\x04" + q[0].to_bytes(32, byteorder="big") + q[1].to_bytes(32, byteorder="big")
         hsh = hashlib.sha256(public_key).digest()
 
         ripemd160hash = hashlib.new("ripemd160")

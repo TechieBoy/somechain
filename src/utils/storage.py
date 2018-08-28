@@ -1,8 +1,10 @@
 import pickledb
-from src.core import Block, dhash
-
-# from core import Block, dhash
+from typing import TYPE_CHECKING
+from src.utils.utils import dhash
 from src.utils.constants import BLOCK_DB_LOC
+
+if TYPE_CHECKING:
+    from src.core import Block # noqa
 
 BLOCK_DB = None
 
@@ -19,6 +21,6 @@ def get_block_from_db(header_hash: str) -> str:
     return db.get(header_hash)
 
 
-def add_block_to_db(block: Block) -> bool:
+def add_block_to_db(block: "Block") -> bool:
     db = load_block_db()
     return db.set(dhash(block.header), block.to_json())

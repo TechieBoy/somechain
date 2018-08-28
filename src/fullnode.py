@@ -5,17 +5,18 @@ from flask import Flask, jsonify, request
 import time
 import json
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 sys.path.append("..")
-from core import *
-from utils.storage import *
+from core import Block, Chain, genesis_block
+from utils.storage import get_block_from_db, add_block_to_db
 import utils.constants as consts
+from utils.utils import dhash
 
 
 app = Flask(__name__)
 
-ACTIVE_CHAIN = []
+ACTIVE_CHAIN = None
 
 BLOCKCHAIN = [ACTIVE_CHAIN]
 

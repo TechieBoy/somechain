@@ -3,8 +3,11 @@ import json
 import requests
 import random
 from flask import Flask, jsonify, request
-from core import *
-from typing import Dict, Any
+from core import Transaction, Block, Chain, SingleOutput, TxIn, TxOut, BlockHeader
+from core import genesis_block, genesis_block_transaction, genesis_block_header
+from typing import Dict, List, Any, TYPE_CHECKING
+from utils.utils import merkle_hash, dhash
+from utils.logger import logger
 
 app = Flask(__name__)
 
