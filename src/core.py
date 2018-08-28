@@ -58,6 +58,33 @@ class TxIn(DataClassJson):
     # Sequence number
     sequence: int
 
+    # Check if the TxIn is Valid
+    def is_valid(self, is_coinbase: bool) -> bool:
+        if is_coinbase:
+            # Coinbase payout must be None.
+            if self.payout is not None:
+                logger.debug("TxIn: Payout is not None for Coinbase Tx")
+                return False
+        else:
+            try:
+                # Ensure the Transaction Id is valid hex string
+                if not len(self.payout.txid or "") == consts.TRANSACTION_ID_LENGTH_HEX:
+                    logger.debug("TxIn: TxID of invalid length")
+                    return False
+                # Ensure the payment index is valid
+                if not self.payout.vout >= 0:
+                    logger.debug("TxIn: Payment index(vout) invalid")
+                    return False
+                # Ensure the sig and pubkey are valid
+                if len(self.sig or "") == 0 or len(self.pub_key or "") == 0:
+                    logger.debug("TxIN: Sig/Pubkey of invalid length")
+                    logger.debug(self.sig)
+                    return False
+            except Exception as e:
+                logger.error(e)
+                return False
+        return True
+
 
 @dataclass
 class Transaction(DataClassJson):
@@ -68,24 +95,33 @@ class Transaction(DataClassJson):
 
     def is_valid(self):
 
-        # No empty inputs or outputs
+        # No empty inputs or outputs -1
         if len(self.vin) == 0 or len(self.vout) == 0:
+            logger.debug("Transaction: Empty vin/vout")
             return False
 
-        # Transaction size should not exceed max block size
+        # Transaction size should not exceed max block size -2
         if getsizeof(str(self)) > consts.MAX_BLOCK_SIZE_KB * 1024:
+            logger.debug("Transaction: Size Exceeded")
             return False
 
-        # All outputs in legal money range
-        for t in self.vout:
-            if t.amount > consts.MAX_SATOSHIS_POSSIBLE or t.amount < 0:
+        # All outputs in legal money range -3
+        for index, out in self.vout.items():
+            if out.amount > consts.MAX_SATOSHIS_POSSIBLE or out.amount < 0:
+                logger.debug("Transaction: Invalid Amount")
                 return False
 
-        # Verify locktime
+        # Verify all Inputs are valid - 4
+        for index, inp in self.vin.items():
+            if not inp.is_valid(self.is_coinbase):
+                logger.debug("Transaction: Invalid TxIn")
+                return False
+
+        # Verify locktime -5
         difference = get_time_difference_from_now_secs(self.locktime)
         if difference > 0:
+            logger.debug("Transaction: Locktime Verify Failed")
             return False
-
         return True
 
     # Whether this transaction is coinbase transaction
@@ -128,9 +164,9 @@ class BlockHeader(DataClassJson):
     timestamp: int
 
     # Proof-of-Work target as number of zero bits in the beginning of the hash
-    target_bits: int = field(repr=False)
+    target_difficulty: int = field(repr=False)
 
-    # Nonce to try to get a hash below target_bits
+    # Nonce to try to get a hash below target_difficulty
     nonce: int
 
 
@@ -148,34 +184,28 @@ class Block(DataClassJson):
         return dhash(self.header)
 
     def is_valid(self) -> bool:
-        # Block should be of valid size
+        # Block should be of valid size and List of Transactions should not be empty -1
         if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or len(self.transactions) == 0:
-            logger.debug("Block Size Exceeded")
+            logger.debug("Block: Size Exceeded/No. of Tx==0")
             return False
 
-        # Block should not have been mined more than 2 hours in the future
-        difference = get_time_difference_from_now_secs(self.header.timestamp)
-        if difference > consts.BLOCK_MAX_TIME_FUTURE_SECS:
-            logger.debug("Time Stamp not valid")
-            return False
-
-        # Reject if timestamp is the median time of the last 11 blocks or before
-        # TODO
-
-        # The first and only first transaction should be coinbase
+        # The first and only first transaction should be coinbase -2
         transaction_status = [transaction.is_coinbase for transaction in self.transactions]
         first_transaction = transaction_status[0]
         other_transactions = transaction_status[1:]
         if not first_transaction or any(other_transactions):
-            logger.debug("Coinbase transaction not valid")
+            logger.debug("Block: First Tx is not Coinbase")
             return False
 
-        # Make sure each transaction is valid
-        # TODO
+        # Make sure each transaction is valid -3
+        for tx in self.transactions:
+            if not tx.is_valid():
+                logger.debug("Block: Transaction is not Valid")
+                return False
 
-        # Verify merkle hash
+        # Verify merkle hash -4
         if self.header.merkle_root != merkle_hash(self.transactions):
-            logger.debug("Merkle Hash failed")
+            logger.debug("Block: Merkle Hash failed")
             return False
         return True
 
@@ -185,13 +215,10 @@ class Utxo:
     # Mapping from string repr of SingleOutput to List[TxOut, Blockheader]
     utxo: Dict[str, List[Any]] = field(default_factory=dict)
 
-
     def get(self, so: SingleOutput) -> Optional[List[Any]]:
         so_str = so.to_json()
         if so_str in self.utxo:
             return self.utxo[so_str]
-        logger.debug(so_str)
-        logger.debug(self.utxo)
         return None
 
     def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader):
@@ -227,11 +254,8 @@ class Chain:
             block = Block.from_json(get_block_from_db(dhash(header)))
             self.update_utxo(block)
 
-    # Update the UTXO Set on adding new block
+    # Update the UTXO Set on adding new block, *Assuming* the block being added is valid
     def update_utxo(self, block: Block):
-
-        # TODO ensure that the block & all transactions are valid as per current utxo
-
         block_transactions: List[Transaction] = block.transactions
         for t in block_transactions:
             thash = dhash(t)
@@ -239,34 +263,58 @@ class Chain:
                 # Remove the spent outputs
                 for tinput in t.vin:
                     so = t.vin[tinput].payout
-                    # if so in self.utxo:
-                    #     # TODO verify sig and pub key?!(shouldn't it be done before hand?)
-                    #     # add to utxo if valid
-                    #     del self.utxo[so]
                     self.utxo.remove(so)
             # Add new unspent outputs
             for touput in t.vout:
                 self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header)
 
-    def add_block(self, block: Block):
-        # TODO validate function which checks utxo and signing
+    def is_transaction_valid(self, transaction: Transaction):
+        # TODO check for coinbase TxIn Maturity
+        # TODO ensure the TxIn is present in utxo, i.e exists and has not been spent
+        # TODO ensure sum of amounts of all inputs is in valid amount range
+        # TODO ensure sum of amounts of all inputs is > sum of amounts of all outputs
+        # TODO Verify that the Signature is valid for all inputs
+        pass
+
+    def is_block_valid(self, block: Block):
+        # Check if the block is valid -1
         if not block.is_valid():
             logger.debug("Block is not valid")
             return False
 
-        # Block hash should have proper difficulty
+        # Block hash should have proper difficulty -2
+        if not block.header.target_difficulty == self.target_difficulty:
+            logger.debug("Chain: BlockHeader has invalid difficulty")
+            return False
         if not self.is_proper_difficulty(dhash(block.header)):
+            logger.debug("Chain: Block has invalid POW")
             return False
 
-        if len(self.header_list) == 0 or dhash(self.header_list[-1]) == block.header.prev_block_hash:
+        # Block should not have been mined more than 2 hours in the future -3
+        difference = get_time_difference_from_now_secs(block.header.timestamp)
+        if difference > consts.BLOCK_MAX_TIME_FUTURE_SECS:
+            logger.debug("Block: Time Stamp not valid")
+            return False
+
+        # TODO Reject if timestamp is the median time of the last 11 blocks or before
+
+        # Ensure the prev block header matches the previous block hash in the Chain -4
+        if len(self.header_list) > 0 and not dhash(self.header_list[-1]) == block.header.prev_block_hash:
+            logger.debug("Chain: Block prev header does not match previous block")
+            return False
+
+        return True
+
+    def add_block(self, block: Block):
+        if self.is_block_valid(block):
             self.header_list.append(block.header)
             add_block_to_db(block)
             self.update_utxo(block)
             self.update_target_difficulty()
+            logger.info("Chain: Added Block " + str(block))
             return True
-        logger.debug("No idea what happened")
         return False
-    
+
     def update_target_difficulty(self):
         dui = consts.BLOCK_DIFFICULTY_UPDATE_INTERVAL
         length = len(self.header_list)
@@ -274,8 +322,8 @@ class Chain:
             time_elapsed = self.header_list[-1].timestamp - self.header_list[-dui].timestamp
             num_of_blocks = dui if length > dui else length
             if time_elapsed / num_of_blocks > consts.AVERAGE_BLOCK_MINE_INTERVAL:
-                logger.info("Updating Block Difficulty")
                 if self.target_difficulty < consts.MAXIMUM_TARGET_DIFFICULTY:
+                    logger.info("Updating Block Difficulty")
                     self.target_difficulty += 1
 
     def is_proper_difficulty(self, bhash: str) -> bool:
@@ -286,21 +334,20 @@ class Chain:
             else:
                 pow += 1
         if pow < self.target_difficulty:
-            logger.debug("POW not valid")
+            logger.debug("Chain: POW not valid")
             return False
         return True
 
 
 def get_time_difference_from_now_secs(timestamp: int) -> int:
     """Get time diference from current time in seconds
-    
+
     Arguments:
         timestamp {int} -- Time from which difference is calculated
-    
-    Returns:
-        int -- Time difference in seconds 
-    """
 
+    Returns:
+        int -- Time difference in seconds
+    """
     now = datetime.datetime.now()
     mtime = datetime.datetime.fromtimestamp(timestamp)
     difference = mtime - now
@@ -335,8 +382,6 @@ def dhash(s: Union[str, Transaction, BlockHeader]) -> str:
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
 
 
-
-
 genesis_block_transaction = [
     Transaction(
         version=1,
@@ -354,7 +399,7 @@ genesis_block_header = BlockHeader(
     height=1,
     merkle_root=merkle_hash(genesis_block_transaction),
     timestamp=1231006505,
-    target_bits=0xFFFF001D,
+    target_difficulty=0,
     nonce=2083236893,
 )
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)

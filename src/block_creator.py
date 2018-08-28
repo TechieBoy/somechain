@@ -36,10 +36,7 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
 
 def sync(peer_list):
     max_peer = max(peer_list, key=lambda k: k["blockheight"])
-    r = requests.post(
-        get_peer_url(max_peer) + "/getblockhashes/",
-        data={"myheight": len(ACTIVE_CHAIN)},
-    )
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes/", data={"myheight": len(ACTIVE_CHAIN)})
     hash_list = json.loads(r.text)
     for hhash in hash_list:
         peer_url = get_peer_url(random.choice(peer_list)) + "/getblock/"
@@ -80,9 +77,9 @@ if __name__ == "__main__":
     ACTIVE_CHAIN = Chain()
 
     result = ACTIVE_CHAIN.add_block(genesis_block)
-    print(result)
+    logger.debug(result)
 
-    print(ACTIVE_CHAIN.utxo)
+    logger.debug(ACTIVE_CHAIN.utxo)
 
     # The singleOutput for first coinbase transaction in genesis block
     so = SingleOutput(txid=dhash(genesis_block_transaction[0]), vout=0)
@@ -94,23 +91,15 @@ if __name__ == "__main__":
             timestamp=2,
             is_coinbase=True,
             vin={0: TxIn(payout=None, sig="0", pub_key="", sequence=0)},
-            vout={
-                0: TxOut(
-                    amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
-                )
-            },
+            vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
         ),
         Transaction(
             version=1,
             locktime=0,
             timestamp=3,
             is_coinbase=False,
-            vin={0: TxIn(payout=so, sig="0", pub_key="", sequence=0)},
-            vout={
-                0: TxOut(
-                    amount=1000000000, address="1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
-                )
-            },
+            vin={0: TxIn(payout=so, sig="signature", pub_key="pubkey", sequence=0)},
+            vout={0: TxOut(amount=1000000000, address="1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
         ),
     ]
 
@@ -120,14 +109,14 @@ if __name__ == "__main__":
         height=1,
         merkle_root=merkle_hash(first_block_transaction),
         timestamp=1231006505,
-        target_bits=0xFFFF001D,
+        target_difficulty=0,
         nonce=2083236893,
     )
     first_block = Block(header=first_block_header, transactions=first_block_transaction)
 
     result = ACTIVE_CHAIN.add_block(first_block)
-    print(result)
-    print(ACTIVE_CHAIN.utxo)
+    logger.debug(result)
+    logger.debug(ACTIVE_CHAIN.utxo)
 
     # # ORDER
     # Get list of peers ✓
