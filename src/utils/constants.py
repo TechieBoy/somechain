@@ -1,3 +1,5 @@
+import argparse
+
 # LOGGING CONSTANTS
 LOG_DIRECTORY = "log/"
 DATE_FORMAT = "%d %b %H:%M:%S"
@@ -29,3 +31,17 @@ BLOCK_MAX_TIME_FUTURE_SECS = 2 * 60 * 60
 BLOCK_DIFFICULTY_UPDATE_INTERVAL = 1024  # number of blocks
 AVERAGE_BLOCK_MINE_INTERVAL = 10 * 60  # seconds
 MAXIMUM_TARGET_DIFFICULTY = 255
+
+
+# Define Values from arguments passed
+parser = argparse.ArgumentParser()
+
+parser.add_argument("-v", "--version", help="Print Implementation Version", action="store_true")
+parser.add_argument("-p", "--port", type=int, help="Port on which the somechain server should run", default=MINER_SERVER_PORT)
+parser.add_argument("-s", "--seed-server", type=str, help="Url on which the seed server is running", default=SEED_SERVER_URL)
+args = parser.parse_args()
+
+if args.version:
+    print("Somchain Version: " + MINER_VERSION)
+MINER_SERVER_PORT = args.port
+SEED_SERVER_URL = args.seed_server
