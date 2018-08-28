@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Union, Dict, Any
 import hashlib
 import datetime
-import utils.logger
 
 path.append("..")
 from utils.dataclass_json import DataClassJson
@@ -129,7 +128,7 @@ class BlockHeader(DataClassJson):
     timestamp: int
 
     # Proof-of-Work target as number of zero bits in the beginning of the hash
-    target_bits: int
+    target_bits: int = field(repr=False)
 
     # Nonce to try to get a hash below target_bits
     nonce: int
@@ -148,22 +147,10 @@ class Block(DataClassJson):
     def __repr__(self):
         return dhash(self.header)
 
-    def is_valid(self, target_difficulty: int) -> bool:
+    def is_valid(self) -> bool:
         # Block should be of valid size
         if getsizeof(self.to_json()) > consts.MAX_BLOCK_SIZE_KB * 1024 or len(self.transactions) == 0:
             logger.debug("Block Size Exceeded")
-            return False
-
-        # Block hash should have proper difficulty
-        hhash = str(self)
-        pow = 0
-        for c in hhash:
-            if not c == "0":
-                break
-            else:
-                pow += 1
-        if pow < target_difficulty:
-            logger.debug("POW not valid")
             return False
 
         # Block should not have been mined more than 2 hours in the future
@@ -230,6 +217,9 @@ class Chain:
     # The UTXO Set
     utxo: Utxo = Utxo()
 
+    # The Target difficulty
+    target_difficulty: int = 0
+
     # Build the UTXO Set from scratch
     # TODO Test this lol
     def build_utxo(self):
@@ -260,23 +250,44 @@ class Chain:
 
     def add_block(self, block: Block):
         # TODO validate function which checks utxo and signing
-        if not block.is_valid(get_target_difficulty(self)):
+        if not block.is_valid():
             logger.debug("Block is not valid")
+            return False
+
+        # Block hash should have proper difficulty
+        if not self.is_proper_difficulty(dhash(block.header)):
             return False
 
         if len(self.header_list) == 0 or dhash(self.header_list[-1]) == block.header.prev_block_hash:
             self.header_list.append(block.header)
             add_block_to_db(block)
             self.update_utxo(block)
+            self.update_target_difficulty()
             return True
         logger.debug("No idea what happened")
         return False
     
-    def get_target_difficulty(chain: Chain) -> int:
-        # TODO
-        return 0
+    def update_target_difficulty(self):
+        dui = consts.BLOCK_DIFFICULTY_UPDATE_INTERVAL
+        length = len(self.header_list)
+        if length > 0 and length % dui == 0:
+            time_elapsed = self.header_list[-1].timestamp - self.header_list[-dui].timestamp
+            num_of_blocks = dui if length > dui else length
+            if time_elapsed / num_of_blocks > consts.AVERAGE_BLOCK_MINE_INTERVAL:
+                logger.info("Updating Block Difficulty")
+                if self.target_difficulty < consts.MAXIMUM_TARGET_DIFFICULTY:
+                    self.target_difficulty += 1
 
-    def is_proper_difficulty(bhash: str) -> bool:
+    def is_proper_difficulty(self, bhash: str) -> bool:
+        pow = 0
+        for c in bhash:
+            if not c == "0":
+                break
+            else:
+                pow += 1
+        if pow < self.target_difficulty:
+            logger.debug("POW not valid")
+            return False
         return True
 
 
