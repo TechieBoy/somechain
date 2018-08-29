@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 import src.utils.constants as consts
 
-logger = logging.getLogger()
+logger = logging.getLogger("somechain")
 formatter = logging.Formatter("%(asctime)s %(levelname)-10s %(message)s", consts.DATE_FORMAT)
 logger.setLevel(logging.DEBUG)
 

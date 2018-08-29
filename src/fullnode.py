@@ -12,6 +12,7 @@ from core import Block, Chain, genesis_block
 from utils.storage import get_block_from_db, add_block_to_db
 import utils.constants as consts
 from utils.utils import dhash
+from utils.logger import logger
 
 
 app = Flask(__name__)
@@ -51,14 +52,12 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
 
 def sync(peer_list):
     max_peer = max(peer_list, key=lambda k: k['blockheight'])
-    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={'myheight': len(ACTIVE_CHAIN)})
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={'myheight': ACTIVE_CHAIN.length})
     hash_list = json.loads(r.text)
     for hhash in hash_list:
         block = receive_block_from_peer(random.choice(peer_list), hhash)
-        if block.is_valid():
-            add_block_to_db(block)
-            add_block_to_chain(block)
-        else:
+        if not ACTIVE_CHAIN.add_block(block):
+            logger.error("SYNC: Block received is incomplete")
             raise Exception("WTF")
 
 

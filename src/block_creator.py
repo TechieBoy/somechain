@@ -8,12 +8,15 @@ from core import genesis_block, genesis_block_transaction, genesis_block_header
 from typing import Dict, List, Any, TYPE_CHECKING
 from utils.utils import merkle_hash, dhash
 from utils.logger import logger
+from utils.storage import get_block_from_db
 
 app = Flask(__name__)
 
 PEER_LIST = []
 
 BLOCK_DB = None
+
+ACTIVE_CHAIN = Chain()
 
 
 def fetch_peer_list():
@@ -45,16 +48,13 @@ def sync(peer_list):
         peer_url = get_peer_url(random.choice(peer_list)) + "/getblock/"
         r = requests.post(peer_url, data={"headerhash": hhash})
         block = Block.from_json(r.text)
-        if block.is_valid():
-            add_block_to_db(block)
-            add_block_to_chain(block)
-        else:
+        if not ACTIVE_CHAIN.add_block(block):
             raise Exception("WTF")
 
 
 @app.route("/")
 def hello():
-    data = {"version": consts.MINER_VERSION, "blockheight": len(ACTIVE_CHAIN)}
+    data = {"version": consts.MINER_VERSION, "blockheight": ACTIVE_CHAIN.length}
     return jsonify(data)
 
 
@@ -70,14 +70,12 @@ def getblock():
 def send_block_hashes():
     peer_height = int(request.form.get("myheight"))
     hash_list = []
-    for i in range(peer_height + 1, len(ACTIVE_CHAIN)):
+    for i in range(peer_height + 1, ACTIVE_CHAIN.length):
         hash_list.append(dhash(ACTIVE_CHAIN[i]))
     return jsonify(hash_list)
 
 
 if __name__ == "__main__":
-
-    ACTIVE_CHAIN = Chain()
 
     result = ACTIVE_CHAIN.add_block(genesis_block)
     logger.debug(result)
@@ -128,6 +126,6 @@ if __name__ == "__main__":
     # Start the flask server and listen for future blocks and transactions.
     # Start a thread to handle the new block/transaction
 
-    # fetch_peer_list()
+    fetch_peer_list()
 
-    # app.run(host='0.0.0.0', port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
+    app.run(host='0.0.0.0', port=consts.MINER_SERVER_PORT, threaded=True, debug=True)

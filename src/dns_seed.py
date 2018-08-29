@@ -1,6 +1,9 @@
 from flask import Flask, jsonify, request
 import time
-import utils.constants as consts
+import sys
+sys.path.append("..")
+import src.utils.constants as consts
+from src.utils.logger import logger
 
 app = Flask(__name__)
 
@@ -11,8 +14,6 @@ def validate_peer_list():
     global PEER_LIST
     validated_peer_list = []
     for entry in PEER_LIST:
-        ip = entry["ip"]
-        port = entry["port"]
         last_time = time.time()
         if time.time() - last_time < consts.ENTRY_DURATION:
             validated_peer_list.append(entry)
@@ -35,7 +36,6 @@ def peer_list():
     for entry in PEER_LIST:
         ip = entry["ip"]
         port = entry["port"]
-        last_time = time.time()
         if ADD_ENTRY and ip == new_ip and port == new_port:
             entry["time"] = time.time()
             ADD_ENTRY = False
