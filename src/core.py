@@ -227,11 +227,11 @@ class Utxo:
         so_str = so.to_json()
         if so_str in self.utxo:
             return self.utxo[so_str]
-        return None
+        return None, None, None
 
-    def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader):
+    def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader,is_coinbase: bool):
         so_str = so.to_json()
-        self.utxo[so_str] = [txout, blockheader]
+        self.utxo[so_str] = [txout, blockheader,is_coinbase]
 
     def remove(self, so: SingleOutput) -> bool:
         so_str = so.to_json()
@@ -274,30 +274,35 @@ class Chain:
                     self.utxo.remove(so)
             # Add new unspent outputs
             for touput in t.vout:
-                self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header)
+                self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header,t.is_coinbase)
 
     def is_transaction_valid(self, transaction: Transaction):
         # check for coinbase TxIn Maturity
         # ensure the TxIn is present in utxo, i.e exists and has not been spent
         # Verify that the Signature is valid for all inputs
+        if not transaction.is_valid():
+            return False
+
         sum_of_all_inputs = 0
         sum_of_all_outputs = 0
         sign_copy_of_tx = copy.deepcopy(transaction)
         sign_copy_of_tx.vin = {}
         for inp, tx_in in transaction.vin.items():
-            tx_out, block_hdr = utxo.get(tx_in.payout)
-            if block_hdr is not None:
-                if not self.header_list[-1].height - block_hdr.height > consts.COINBASE_MATURITY:
-                    logger.debug("Chain: Coinbase not matured")
+            if tx_in.payout is not None:
+                tx_out, block_hdr, is_coinbase = self.utxo.get(tx_in.payout)
+                if block_hdr is not None:
+                    if is_coinbase:
+                        if not self.header_list[-1].height - block_hdr.height > consts.COINBASE_MATURITY:
+                            logger.debug("Chain: Coinbase not matured")
+                            return False
+                else:
+                    logger.debug("Chain: Block header not found in utxo")
                     return False
-            else:
-                logger.debug("Chain: Block header not found in utxo")
-                return False
-                
-            if not Wallet.verify(sign_copy_of_tx.to_json(),tx_in.signature,tx_in.public_key):
-                logger.debug("Chain: Invalid Signature")
-                return False
-            sum_of_all_inputs += tx_out.amount
+                    
+                if not Wallet.verify(sign_copy_of_tx.to_json(),tx_in.signature,tx_in.public_key):
+                    logger.debug("Chain: Invalid Signature")
+                    return False
+                sum_of_all_inputs += tx_out.amount
 
         if sum_of_all_inputs > consts.MAX_SATOSHIS_POSSIBLE or sum_of_all_inputs < 0:
             logger.debug("Chain: Invalid input Amount")
@@ -312,15 +317,17 @@ class Chain:
             return False
 
         # ensure sum of amounts of all inputs is > sum of amounts of all outputs
-        if not sum_of_all_inputs > sum_of_all_outputs:
+        if not sum_of_all_inputs > sum_of_all_outputs and not transaction.is_coinbase:
             logger.debug("Chain: input sum less than output sum")
             return False
 
-        if not sum_of_all_inputs - sum_of_all_outputs == transaction.fees:
+        if not sum_of_all_inputs - sum_of_all_outputs == transaction.fees and not transaction.is_coinbase:
             logger.debug("Chain: transaction fees not valid")
             return False
 
         return True
+
+        
         
 
     def is_block_valid(self, block: Block):
@@ -358,7 +365,12 @@ class Chain:
         if len(self.header_list) > 0 and not dhash(self.header_list[-1]) == block.header.prev_block_hash:
             logger.debug("Chain: Block prev header does not match previous block")
             return False
-
+        
+        # Validating each transaction in block
+        for tx in block.transactions:
+            if not self.is_transaction_valid(tx):
+                logger.debug("Chain: Transaction not valid")
+                return False
         return True
 
     def add_block(self, block: Block):
