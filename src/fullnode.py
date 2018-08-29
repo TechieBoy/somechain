@@ -56,31 +56,41 @@ def remove_transactions_from_mempool(block: Block):
     MEMPOOL = set([x for x in MEMPOOL if x not in block.transactions])
 
 
-def fetch_peer_list():
-    r = requests.post(consts.SEED_SERVER_URL, data={"port": consts.MINER_SERVER_PORT})
-    peer_list = json.loads(r.text)
-    return peer_list
+def fetch_peer_list() -> List[str]:
+    try:
+        r = requests.post(consts.SEED_SERVER_URL, data={"port": consts.MINER_SERVER_PORT})
+        peer_list = json.loads(r.text)
+        return peer_list
+    except Exception as e:
+        return []
 
 
 def get_peer_url(peer: Dict[str, Any]) -> str:
     return "http://" + str(peer["ip"]) + ":" + str(peer["port"])
 
 
-def greet_peer(peer: Dict[str, Any]) -> List:
-    url = get_peer_url(peer)
-    r = requests.get(url)
-    return json.loads(r.text)
+def greet_peer(peer: Dict[str, Any]) -> Dict:
+    try:
+        url = get_peer_url(peer)
+        r = requests.get(url + "/")
+        return json.loads(r.text)
+    except Exception as e:
+        logger.debug("Main: Could not greet peer" + str(e))
+        return {}
 
 
 def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     r = requests.post(get_peer_url(peer) + "/getblock", data={"headerhash": header_hash})
-    return Block.from_json(r.text)
+    logger.debug(r.text)
+    return Block.from_json(r.text).object()
 
 
 def sync(peer_list):
     max_peer = max(peer_list, key=lambda k: k["blockheight"])
+    logger.debug(get_peer_url(max_peer))
     r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": ACTIVE_CHAIN.length})
     hash_list = json.loads(r.text)
+    logger.debug(hash_list)
     for hhash in hash_list:
         block = receive_block_from_peer(random.choice(peer_list), hhash)
         if not ACTIVE_CHAIN.add_block(block):
@@ -106,8 +116,9 @@ def getblock():
 def send_block_hashes():
     peer_height = int(request.form.get("myheight"))
     hash_list = []
-    for i in range(peer_height + 1, len(ACTIVE_CHAIN)):
-        hash_list.append(dhash(ACTIVE_CHAIN[i]))
+    for i in range(peer_height + 1, ACTIVE_CHAIN.length):
+        hash_list.append(dhash(ACTIVE_CHAIN.header_list[i]))
+    logger.debug(hash_list)
     return jsonify(hash_list)
 
 
@@ -135,15 +146,22 @@ def received_new_block():
             pass
 
 
-@app.route("/addtransaction")
+@app.route("/newtransaction", methods=["POST"])
 def received_new_transaction():
     global MEMPOOL
     transaction_json = str(request.form.get("transaction", None))
     if transaction_json:
         try:
-            tx = Transaction.from_json(transaction_json)
+            tx = Transaction.from_json(transaction_json).object()
             # Add transaction to Mempool
-            MEMPOOL.add(tx)
+            if ACTIVE_CHAIN.is_transaction_valid(tx):
+                MEMPOOL.add(tx)
+            else:
+                return jsonify("Not Valid Transaction")
+
+            # miner start mining
+            start_mining_thread()
+
             # Broadcast block t other peers
             for peer in PEER_LIST:
                 try:
@@ -154,6 +172,7 @@ def received_new_transaction():
         except Exception as e:
             logger.error("Flask: New Transaction: invalid tx received" + str(e))
             pass
+    return jsonify("Done")
 
 
 if __name__ == "__main__":
@@ -186,6 +205,6 @@ if __name__ == "__main__":
     t = threading.Thread(target=func)
     t.start()
 
-    start_mining_thread()
+    # start_mining_thread()
 
     app.run(port=consts.MINER_SERVER_PORT, threaded=True, debug=True)

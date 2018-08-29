@@ -11,6 +11,7 @@ from utils.logger import logger
 from utils.storage import get_block_from_db
 from wallet import Wallet
 import copy
+
 app = Flask(__name__)
 
 PEER_LIST = []
@@ -71,8 +72,9 @@ def getblock():
 def send_block_hashes():
     peer_height = int(request.form.get("myheight"))
     hash_list = []
-    for i in range(peer_height + 1, ACTIVE_CHAIN.length):
-        hash_list.append(dhash(ACTIVE_CHAIN[i]))
+    for i in range(peer_height, ACTIVE_CHAIN.length):
+        hash_list.append(dhash(ACTIVE_CHAIN.header_list[i]))
+    logger.debug(peer_height)
     return jsonify(hash_list)
 
 
@@ -115,8 +117,6 @@ if __name__ == "__main__":
     sig = w.sign(sign_copy_of_tx.to_json())
     first_block_transaction[1].vin[0].sig = sig
 
-
-
     first_block_header = BlockHeader(
         version=1,
         prev_block_hash=dhash(genesis_block_header),
@@ -139,6 +139,6 @@ if __name__ == "__main__":
     # Start the flask server and listen for future blocks and transactions.
     # Start a thread to handle the new block/transaction
 
-    # fetch_peer_list()
+    fetch_peer_list()
 
-    # app.run(host='0.0.0.0', port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
+    app.run(host="0.0.0.0", port=consts.MINER_SERVER_PORT, threaded=True, debug=True)

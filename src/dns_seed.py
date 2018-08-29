@@ -23,6 +23,7 @@ def validate_peer_list():
 @app.route("/", methods=["GET", "POST"])
 def peer_list():
     global PEER_LIST
+    ADD_ENTRY = False
 
     validate_peer_list()
 

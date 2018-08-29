@@ -67,7 +67,7 @@ class Miner:
                 prev_block_hash=dhash(chain.header_list[-1]),
                 merkle_root=merkle_hash(mlist),
                 timestamp=int(time.time()),
-                target_difficulty=chain.get_target_difficulty(),
+                target_difficulty=chain.target_difficulty,
                 nonce=n,
             )
             bhash = dhash(block_header)

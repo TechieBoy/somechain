@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 import copy
 from wallet import Wallet
+import json
+
 path.append("..")
 from utils.dataclass_json import DataClassJson
 from utils.storage import get_block_from_db, add_block_to_db
@@ -20,6 +22,7 @@ import utils.constants as consts
 from utils.logger import logger
 from statistics import median
 from utils.utils import merkle_hash, dhash, get_time_difference_from_now_secs
+
 
 @dataclass
 class SingleOutput(DataClassJson):
@@ -33,7 +36,7 @@ class SingleOutput(DataClassJson):
 
 
 @dataclass
-class TxOut(DataClassJson):
+class TxOut(DataClassJson, dict):
     """ A single Transaction Output """
 
     # The amount in satoshis
@@ -44,7 +47,7 @@ class TxOut(DataClassJson):
 
 
 @dataclass
-class TxIn(DataClassJson):
+class TxIn(DataClassJson, dict):
     """ A single Transaction Input """
 
     # The UTXO we will be spending
@@ -69,7 +72,7 @@ class TxIn(DataClassJson):
                     logger.debug("TxIn: TxID of invalid length")
                     return False
                 # Ensure the payment index is valid
-                if not self.payout.vout >= 0:
+                if not int(self.payout.vout) >= 0:
                     logger.debug("TxIn: Payment index(vout) invalid")
                     return False
                 # Ensure the sig and pubkey are valid
@@ -89,6 +92,9 @@ class Transaction(DataClassJson):
 
     def __str__(self):
         return self.to_json()
+
+    def __hash__(self):
+        return int(dhash(self), 16)
 
     # TODO Test this LOL
     def __eq__(self, other):
@@ -128,6 +134,28 @@ class Transaction(DataClassJson):
             logger.debug("Transaction: Locktime Verify Failed")
             return False
         return True
+    
+    def object(self):
+        newtransaction = copy.deepcopy(self)
+        n_vin = {}
+        for j, tx_in in self.vin.items():
+            if not isinstance(tx_in, TxIn):
+                n_vin[int(j)] = TxIn.from_json(json.dumps(tx_in))
+            else:
+                n_vin[int(j)] = copy.deepcopy(tx_in)
+        
+        n_vout = {}
+        for j, tx_out in self.vout.items():
+            if not isinstance(tx_out, TxOut):
+                n_vout[int(j)] = TxOut.from_json(json.dumps(tx_out))
+            else:
+                n_vout[int(j)] = copy.deepcopy(tx_out)
+        
+        newtransaction.vin = n_vin
+        newtransaction.vout = n_vout
+
+        return newtransaction
+
 
     # Whether this transaction is coinbase transaction
     is_coinbase: bool
@@ -189,6 +217,13 @@ class Block(DataClassJson):
     # The transactions in this block
     transactions: List[Transaction]
 
+    # Validate object
+    def object(self):
+        newblock = copy.deepcopy(self)
+        for i, tx in enumerate(self.transactions):            
+            newblock.transactions[i] = self.transactions[i].object()
+        return newblock
+
     def __repr__(self):
         return dhash(self.header)
 
@@ -228,11 +263,13 @@ class Utxo:
         so_str = so.to_json()
         if so_str in self.utxo:
             return self.utxo[so_str]
+        logger.error(so_str)
+        logger.error(self.utxo)
         return None, None, None
 
-    def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader,is_coinbase: bool):
+    def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader, is_coinbase: bool):
         so_str = so.to_json()
-        self.utxo[so_str] = [txout, blockheader,is_coinbase]
+        self.utxo[so_str] = [txout, blockheader, is_coinbase]
 
     def remove(self, so: SingleOutput) -> bool:
         so_str = so.to_json()
@@ -275,7 +312,7 @@ class Chain:
                     self.utxo.remove(so)
             # Add new unspent outputs
             for touput in t.vout:
-                self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header,t.is_coinbase)
+                self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header, t.is_coinbase)
 
     def is_transaction_valid(self, transaction: Transaction):
         # check for coinbase TxIn Maturity
@@ -294,14 +331,15 @@ class Chain:
                 if block_hdr is not None:
                     if is_coinbase:
                         if not self.length - block_hdr.height > consts.COINBASE_MATURITY:
-                            logger.debug(str(self.length)+" "+str(block_hdr.height))
+                            logger.debug(str(self.length) + " " + str(block_hdr.height))
                             logger.debug("Chain: Coinbase not matured")
                             return False
                 else:
+                    logger.debug(tx_in.payout)
                     logger.debug("Chain: Block header not found in utxo")
                     return False
-                    
-                if not Wallet.verify(sign_copy_of_tx.to_json(),tx_in.sig,tx_in.pub_key):
+
+                if not Wallet.verify(sign_copy_of_tx.to_json(), tx_in.sig, tx_in.pub_key):
                     logger.debug("Chain: Invalid Signature")
                     return False
                 sum_of_all_inputs += tx_out.amount
@@ -309,7 +347,7 @@ class Chain:
         if sum_of_all_inputs > consts.MAX_SATOSHIS_POSSIBLE or sum_of_all_inputs < 0:
             logger.debug("Chain: Invalid input Amount")
             return False
-        
+
         for out, tx in transaction.vout.items():
             sum_of_all_outputs += tx.amount
 
@@ -328,9 +366,6 @@ class Chain:
             return False
 
         return True
-
-        
-        
 
     def is_block_valid(self, block: Block):
         # Check if the block is valid -1
@@ -367,7 +402,7 @@ class Chain:
         if len(self.header_list) > 0 and not dhash(self.header_list[-1]) == block.header.prev_block_hash:
             logger.debug("Chain: Block prev header does not match previous block")
             return False
-        
+
         # Validating each transaction in block
         for tx in block.transactions:
             if not self.is_transaction_valid(tx):
@@ -411,13 +446,13 @@ class Chain:
         return True
 
     # TODO
-    def current_block_reward() -> int:
+    def current_block_reward(self) -> int:
         """Returns the current block reward
         
         Returns:
             int -- The current block reward in satoshis
         """
-        pass
+        return 0
 
 
 genesis_block_transaction = [
@@ -444,3 +479,6 @@ genesis_block = Block(header=genesis_block_header, transactions=genesis_block_tr
 
 if __name__ == "__main__":
     logger.debug(genesis_block)
+    gb_json = genesis_block.to_json()
+    gb = Block.from_json(gb_json).object()
+    print(gb.transactions[0].vout[0].amount)
