@@ -270,6 +270,7 @@ class Chain:
 
     def is_transaction_valid(self, transaction: Transaction):
         # TODO check for coinbase TxIn Maturity
+
         # TODO ensure the TxIn is present in utxo, i.e exists and has not been spent
         # TODO ensure sum of amounts of all inputs is in valid amount range
         # TODO ensure sum of amounts of all inputs is > sum of amounts of all outputs
@@ -296,14 +297,15 @@ class Chain:
             logger.debug("Block: Time Stamp not valid")
             return False
 
-        # Reject if timestamp is the median time of the last 11 blocks or before
+        # Reject if timestamp is the median time of the last 11 blocks or before -5
         if len(self.header_list) > 11:
-            last_11 = self.header_list[-11]
+            last_11 = self.header_list[-11:]
             last_11_timestamp = []
             for bl in last_11:
                 last_11_timestamp.append(bl.header.timestamp)
             med = median(last_11_timestamp)
             if block.header.timestamp <= med:
+                logger.debug("Chain: Median time past")
                 return False
 
         # Ensure the prev block header matches the previous block hash in the Chain -4

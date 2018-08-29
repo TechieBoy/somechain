@@ -36,7 +36,7 @@
 - Verify Merkle hash `Done, Block: is_valid()-4`
 - Check if prev block (matching prev hash) is in main branch or side branches. If not, add this to orphan blocks, then query peer we got this from for 1st missing orphan block in prev chain; done with block `Partially Done, Chain: is_block_valid()-4| TODO Flask: newBlock`
 - Check that nBits value matches the difficulty rules `Done, Chain: is_block_valid()-2`
-- Reject if timestamp is the median time of the last 11 blocks or before `TODO, Chain: is_block_valid()`
+- Reject if timestamp is the median time of the last 11 blocks or before `Done, Chain: is_block_valid() - 5` 
 - For certain old blocks (i.e. on initial block download) check that hash matches known values `No Idea, TODO? getBlock? Initial sync??`
 ----
 **¯\\_(ツ)_/¯**
