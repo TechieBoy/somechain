@@ -9,6 +9,9 @@ class Wallet:
         self.private_key, self.public_key = self.generate_address()
         with open(consts.WALLET_STORAGE_FILE, "a") as file:
             file.write(json.dumps((self.private_key, self.public_key)))
+    
+    
+
 
     def __repr__(self):
         return f"PubKey:{self.public_key}\nPrivKey:{self.private_key}"
@@ -36,10 +39,17 @@ class Wallet:
 
 if __name__ == "__main__":
     w = Wallet()
-    print(w)
+    #print(w)
     message = "Send 100 btc to Teknas"
     sig = w.sign(message)
-    print(type(sig))
+    #print(type(sig))
     result = w.verify(message, sig, w.public_key)
-    print(result)
-    print(sig)
+    # print(result)
+    # print(sig)
+
+    print(w.public_key)
+    print("hololaaa")
+    print(w.private_key)
+
+    
+

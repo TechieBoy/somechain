@@ -9,7 +9,8 @@ from typing import Dict, List, Any, TYPE_CHECKING
 from utils.utils import merkle_hash, dhash
 from utils.logger import logger
 from utils.storage import get_block_from_db
-
+from wallet import Wallet
+import copy
 app = Flask(__name__)
 
 PEER_LIST = []
@@ -93,7 +94,7 @@ if __name__ == "__main__":
             is_coinbase=True,
             fees=0,
             vin={0: TxIn(payout=None, sig="0", pub_key="")},
-            vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
+            vout={0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC)},
         ),
         Transaction(
             version=1,
@@ -101,10 +102,20 @@ if __name__ == "__main__":
             timestamp=3,
             is_coinbase=False,
             fees=4000000000,
-            vin={0: TxIn(payout=so, sig="signature", pub_key="pubkey")},
-            vout={0: TxOut(amount=1000000000, address="1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
+            vin={0: TxIn(payout=so, sig="", pub_key=consts.WALLET_PUBLIC)},
+            vout={0: TxOut(amount=1000000000, address=consts.WALLET_PUBLIC)},
         ),
     ]
+
+    sign_copy_of_tx = copy.deepcopy(first_block_transaction[1])
+    sign_copy_of_tx.vin = {}
+    w = Wallet()
+    w.public_key = consts.WALLET_PUBLIC
+    w.private_key = consts.WALLET_PRIVATE
+    sig = w.sign(sign_copy_of_tx.to_json())
+    first_block_transaction[1].vin[0].sig = sig
+
+
 
     first_block_header = BlockHeader(
         version=1,

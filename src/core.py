@@ -12,6 +12,7 @@ from sys import getsizeof, path
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 import copy
+from wallet import Wallet
 path.append("..")
 from utils.dataclass_json import DataClassJson
 from utils.storage import get_block_from_db, add_block_to_db
@@ -292,14 +293,15 @@ class Chain:
                 tx_out, block_hdr, is_coinbase = self.utxo.get(tx_in.payout)
                 if block_hdr is not None:
                     if is_coinbase:
-                        if not self.header_list[-1].height - block_hdr.height > consts.COINBASE_MATURITY:
+                        if not self.length - block_hdr.height > consts.COINBASE_MATURITY:
+                            logger.debug(str(self.length)+" "+str(block_hdr.height))
                             logger.debug("Chain: Coinbase not matured")
                             return False
                 else:
                     logger.debug("Chain: Block header not found in utxo")
                     return False
                     
-                if not Wallet.verify(sign_copy_of_tx.to_json(),tx_in.signature,tx_in.public_key):
+                if not Wallet.verify(sign_copy_of_tx.to_json(),tx_in.sig,tx_in.pub_key):
                     logger.debug("Chain: Invalid Signature")
                     return False
                 sum_of_all_inputs += tx_out.amount
@@ -379,6 +381,8 @@ class Chain:
             add_block_to_db(block)
             self.update_utxo(block)
             self.update_target_difficulty()
+            self.length = len(self.header_list)
+
             logger.info("Chain: Added Block " + str(block))
             return True
         return False
@@ -430,7 +434,7 @@ genesis_block_transaction = [
 genesis_block_header = BlockHeader(
     version=1,
     prev_block_hash=None,
-    height=1,
+    height=0,
     merkle_root=merkle_hash(genesis_block_transaction),
     timestamp=1231006505,
     target_difficulty=0,
