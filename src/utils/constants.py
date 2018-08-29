@@ -23,7 +23,7 @@ MINER_VERSION = "0.1"
 BLOCK_DB_LOC = "db/block.db"
 
 # BLOCKCHAIN CONSTANTS
-TRANSACTION_ID_LENGTH_HEX = 64  # 256 bit string is 64 hexa_dec string
+HASH_LENGTH_HEX = 64  # 256 bit string is 64 hexa_dec string
 
 MAX_BLOCK_SIZE_KB = 4096
 MAX_SATOSHIS_POSSIBLE = 21_000_000 * 100_000_000

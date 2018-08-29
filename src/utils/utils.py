@@ -1,6 +1,7 @@
 import datetime
 from typing import List, Union, TYPE_CHECKING
 import hashlib
+from src.utils.constants import consts
 
 if TYPE_CHECKING:
     from src.core import Transaction, BlockHeader  # noqa
@@ -24,6 +25,8 @@ def get_time_difference_from_now_secs(timestamp: int) -> int:
 
 def merkle_hash(transactions: List["Transaction"]) -> str:
     """ Computes and returns the merkle tree root for a list of transactions """
+    if transactions is None or len(transactions) == 0:
+        return "F" * consts.HASH_LENGTH_HEX
     if len(transactions) == 1:
         return dhash(transactions[0])
     if len(transactions) % 2 != 0:
