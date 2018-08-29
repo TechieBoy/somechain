@@ -65,7 +65,7 @@ class TxIn(DataClassJson):
         else:
             try:
                 # Ensure the Transaction Id is valid hex string
-                if not len(self.payout.txid or "") == consts.TRANSACTION_ID_LENGTH_HEX:
+                if not len(self.payout.txid or "") == consts.HASH_LENGTH_HEX:
                     logger.debug("TxIn: TxID of invalid length")
                     return False
                 # Ensure the payment index is valid

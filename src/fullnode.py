@@ -6,6 +6,7 @@ import time
 import json
 import threading
 from typing import Dict, Any, List, Set
+from threading import Thread
 
 sys.path.append("..")
 from core import Block, Chain, genesis_block, Transaction
@@ -25,9 +26,23 @@ BLOCKCHAIN: List[Chain] = [ACTIVE_CHAIN]
 
 PEER_LIST = []
 
-mempool: Set[Transaction] = set()
+MEMPOOL: Set[Transaction] = set()
 
 PAYOUT_ADDR = "Put my wallet address here"
+
+miner = Miner()
+
+
+def mining_thread_task():
+    global miner, MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR
+    if not miner.is_mining():
+        miner.start_mining(MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR)
+    time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL)
+
+
+def start_mining_thread():
+    t = Thread(target=mining_thread_task, name="Miner", daemon=True)
+    t.start()
 
 
 def remove_transactions_from_mempool(block: Block):
@@ -37,8 +52,8 @@ def remove_transactions_from_mempool(block: Block):
         block {Block} -- The block which is received
     """
 
-    global mempool
-    mempool = set([x for x in mempool if x not in block.transactions])
+    global MEMPOOL
+    MEMPOOL = set([x for x in MEMPOOL if x not in block.transactions])
 
 
 def fetch_peer_list():
@@ -104,6 +119,9 @@ def received_new_block():
             block = Block.from_json(block_json)
             for ch in BLOCKCHAIN:
                 if ch.add_block(block):
+                    # Remove the transactions from MemPools
+                    remove_transactions_from_mempool(block)
+                    # Broadcast block t other peers
                     for peer in PEER_LIST:
                         try:
                             requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})
@@ -114,6 +132,27 @@ def received_new_block():
             # TODO Make new chain/ orphan set for Block that is not added
         except Exception as e:
             logger.error("Flask: New Block: invalid block received" + str(e))
+            pass
+
+
+@app.route("/addtransaction")
+def received_new_transaction():
+    global MEMPOOL
+    transaction_json = str(request.form.get("transaction", None))
+    if transaction_json:
+        try:
+            tx = Transaction.from_json(transaction_json)
+            # Add transaction to Mempool
+            MEMPOOL.add(tx)
+            # Broadcast block t other peers
+            for peer in PEER_LIST:
+                try:
+                    requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()})
+                except Exception as e:
+                    logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
+                    pass
+        except Exception as e:
+            logger.error("Flask: New Transaction: invalid tx received" + str(e))
             pass
 
 
@@ -147,7 +186,6 @@ if __name__ == "__main__":
     t = threading.Thread(target=func)
     t.start()
 
-    miner = Miner()
-    miner.start_mining(mempool, ACTIVE_CHAIN, PAYOUT_ADDR)
-    miner.stop_mining()
+    start_mining_thread()
+
     app.run(port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
