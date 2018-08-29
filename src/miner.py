@@ -2,6 +2,7 @@ from core import Transaction, Block, BlockHeader, Chain, TxIn, TxOut
 from sys import getsizeof
 from utils.utils import dhash, merkle_hash
 import utils.constants as consts
+from utils.logger import logger
 from typing import Set, List, Tuple, Optional
 from operator import attrgetter
 import requests
@@ -24,11 +25,13 @@ class Miner:
         if not self.is_mining():
             self.p = Process(target=self.__mine, args=(mempool, chain, payout_addr))
             self.p.start()
+            logger.debug("Started mining")
 
     def stop_mining(self):
         if self.is_mining():
             self.p.terminate()
             self.p = None
+            logger.debug("Stopped mining")
 
     def __calculate_best_transactions(self, transactions: List[Transaction]) -> Tuple[List[Transaction], int]:
         """Returns the best transactions to be mined which don't exceed the max block size
@@ -56,6 +59,7 @@ class Miner:
     def __mine(self, mempool: Set[Transaction], chain: Chain, payout_addr: str) -> Block:
         c_pool = list(copy.deepcopy(mempool))
         mlist, fees = self.__calculate_best_transactions(c_pool)
+        logger.debug(f"Will mine {len(mlist)} transactions and get {fees} satoshis in fees")
         for n in range(2 ** 64):
             block_header = BlockHeader(
                 version=consts.MINER_VERSION,
@@ -85,4 +89,7 @@ class Miner:
                 mlist.insert(0, coinbase_tx)
                 block = Block(header=block_header, transactions=mlist)
                 requests.post("http://0.0.0.0" + "/newblock", data={"block": block})
+                logger.debug(f"Mined block with hash {bhash}! I'm rich!!")
                 sys.exit()
+        logger.critical("Exhausted all 2 ** 64 values without finding proper hash")
+        sys.exit()
