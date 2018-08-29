@@ -1,8 +1,11 @@
 import argparse
+import sys
+import logging
 
 # LOGGING CONSTANTS
 LOG_DIRECTORY = "log/"
 DATE_FORMAT = "%d %b %H:%M:%S"
+LOG_LEVEL = logging.DEBUG
 
 # WALLET CONSTANTS
 WALLET_STORAGE_FILE = "wallets.log"
@@ -36,12 +39,27 @@ MAXIMUM_TARGET_DIFFICULTY = 255
 # Define Values from arguments passed
 parser = argparse.ArgumentParser()
 
-parser.add_argument("-v", "--version", help="Print Implementation Version", action="store_true")
+parser.add_argument("--version", help="Print Implementation Version", action="store_true")
 parser.add_argument("-p", "--port", type=int, help="Port on which the somechain server should run", default=MINER_SERVER_PORT)
 parser.add_argument("-s", "--seed-server", type=str, help="Url on which the seed server is running", default=SEED_SERVER_URL)
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-v", "--verbose", action="store_true")
+group.add_argument("-q", "--quiet", action="store_true")
 args = parser.parse_args()
 
+# Print Somechain Version
 if args.version:
-    print("Somchain Version: " + MINER_VERSION)
+    print("## Somchain Version: " + str(MINER_VERSION) + " ##")
+    sys.exit(0)
+
+# Set Logging Level
+if args.quiet:
+    LOG_LEVEL = logging.INFO
+elif args.verbose:
+    LOG_LEVEL = logging.DEBUG
+
+# Set Server Port
 MINER_SERVER_PORT = args.port
+
+# Set Seed Server URL
 SEED_SERVER_URL = args.seed_server
