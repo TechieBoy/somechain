@@ -1,7 +1,7 @@
 import datetime
 from typing import List, Union, TYPE_CHECKING
 import hashlib
-from src.utils.constants import consts
+import src.utils.constants as consts
 
 if TYPE_CHECKING:
     from src.core import Transaction, BlockHeader  # noqa

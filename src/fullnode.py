@@ -104,6 +104,9 @@ def received_new_block():
             block = Block.from_json(block_json)
             for ch in BLOCKCHAIN:
                 if ch.add_block(block):
+                    # Remove the transactions from MemPools
+                    remove_transactions_from_mempool(block)
+                    # Broadcast block t other peers
                     for peer in PEER_LIST:
                         try:
                             requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})
@@ -114,6 +117,25 @@ def received_new_block():
             # TODO Make new chain/ orphan set for Block that is not added
         except Exception as e:
             logger.error("Flask: New Block: invalid block received" + str(e))
+            pass
+
+@app.route("/addtransaction")
+def received_new_transaction():
+    transaction_json = str(request.form.get("transaction", None))
+    if transaction_json:
+        try:
+            tx = Transaction.from_json(transaction_json)
+            # Add transaction to Mempool
+            mempool.add(tx)
+            # Broadcast block t other peers
+            for peer in PEER_LIST:
+                try:
+                    requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()})
+                except Exception as e:
+                    logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
+                    pass
+        except Exception as e:
+            logger.error("Flask: New Transaction: invalid tx received" + str(e))
             pass
 
 
