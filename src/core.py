@@ -316,7 +316,11 @@ class Chain:
             logger.debug("Chain: input sum less than output sum")
             return False
 
-        
+        if not sum_of_all_inputs - sum_of_all_outputs == transaction.fees:
+            logger.debug("Chain: transaction fees not valid")
+            return False
+
+        return True
         
 
     def is_block_valid(self, block: Block):
