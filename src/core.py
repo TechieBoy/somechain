@@ -55,9 +55,6 @@ class TxIn(DataClassJson):
     sig: str
     pub_key: str
 
-    # Sequence number
-    sequence: int
-
     # Check if the TxIn is Valid
     def is_valid(self, is_coinbase: bool) -> bool:
         if is_coinbase:
@@ -93,6 +90,14 @@ class Transaction(DataClassJson):
     def __str__(self):
         return self.to_json()
 
+    # TODO Test this LOL
+    def __eq__(self, other):
+        attrs_sam = self.is_coinbase == other.is_coinbase and self.version == other.version
+        attrs_same = attrs_sam and self.timestamp == other.timestamp and self.locktime == other.locktime
+        txin_same = set(self.vin.values()) == set(other.vin.values())
+        txout_same = set(self.vout.values()) == set(other.vout.values())
+        return attrs_same and txin_same and txout_same
+
     def is_valid(self):
 
         # No empty inputs or outputs -1
@@ -127,6 +132,9 @@ class Transaction(DataClassJson):
     # Whether this transaction is coinbase transaction
     is_coinbase: bool
 
+    # The fees received on mining this transaction
+    fees: int = field(repr=False)
+
     # Version for this transaction
     version: int
 
@@ -135,6 +143,7 @@ class Transaction(DataClassJson):
 
     # Earliest time(Unix timestamp >500000000)
     # when this transaction may be added to the block chain.
+    # -1 for coinbase transaction
     locktime: int
 
     # The input transactions
@@ -348,13 +357,24 @@ class Chain:
             return False
         return True
 
+    # TODO
+    def current_block_reward() -> int:
+        """Returns the current block reward
+        
+        Returns:
+            int -- The current block reward in satoshis
+        """
+        pass
+
+
 genesis_block_transaction = [
     Transaction(
         version=1,
         locktime=0,
         timestamp=1,
+        fees=0,
         is_coinbase=True,
-        vin={0: TxIn(payout=None, sig="0", pub_key="", sequence=0)},
+        vin={0: TxIn(payout=None, sig="0", pub_key="")},
         vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
     )
 ]
