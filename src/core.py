@@ -17,7 +17,7 @@ from utils.dataclass_json import DataClassJson
 from utils.storage import get_block_from_db, add_block_to_db
 import utils.constants as consts
 from utils.logger import logger
-
+from statistics import median
 from utils.utils import merkle_hash, dhash, get_time_difference_from_now_secs
 
 
@@ -296,7 +296,15 @@ class Chain:
             logger.debug("Block: Time Stamp not valid")
             return False
 
-        # TODO Reject if timestamp is the median time of the last 11 blocks or before
+        # Reject if timestamp is the median time of the last 11 blocks or before
+        if len(self.header_list) > 11:
+            last_11 = self.header_list[-11]
+            last_11_timestamp = []
+            for bl in last_11:
+                last_11_timestamp.append(bl.header.timestamp)
+            med = median(last_11_timestamp)
+            if block.header.timestamp <= med:
+                return False
 
         # Ensure the prev block header matches the previous block hash in the Chain -4
         if len(self.header_list) > 0 and not dhash(self.header_list[-1]) == block.header.prev_block_hash:
