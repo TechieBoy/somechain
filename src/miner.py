@@ -1,7 +1,7 @@
 from core import Transaction, Block, BlockHeader, Chain, TxIn, TxOut
 from sys import getsizeof
 from utils.utils import dhash, merkle_hash
-import constants as consts
+import utils.constants as consts
 from typing import Set, List, Tuple, Optional
 from operator import attrgetter
 import requests

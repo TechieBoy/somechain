@@ -25,7 +25,7 @@ BLOCKCHAIN: List[Chain] = [ACTIVE_CHAIN]
 
 PEER_LIST = []
 
-mempool: Set[Transaction]
+mempool: Set[Transaction] = set()
 
 PAYOUT_ADDR = "Put my wallet address here"
 
