@@ -17,9 +17,9 @@ from utils.logger import logger
 
 app = Flask(__name__)
 
-ACTIVE_CHAIN = None
+ACTIVE_CHAIN = Chain()
 
-BLOCKCHAIN = [ACTIVE_CHAIN]
+BLOCKCHAIN: List[Chain] = [ACTIVE_CHAIN]
 
 PEER_LIST = []
 
@@ -40,19 +40,14 @@ def greet_peer(peer: Dict[str, Any]) -> List:
     return json.loads(r.text)
 
 
-def add_block_to_chain(block: Block) -> bool:
-    ACTIVE_CHAIN.append(block.header)
-    return True
-
-
 def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     r = requests.post(get_peer_url(peer) + "/getblock", data={"headerhash": header_hash})
     return Block.from_json(r.text)
 
 
 def sync(peer_list):
-    max_peer = max(peer_list, key=lambda k: k['blockheight'])
-    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={'myheight': ACTIVE_CHAIN.length})
+    max_peer = max(peer_list, key=lambda k: k["blockheight"])
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": ACTIVE_CHAIN.length})
     hash_list = json.loads(r.text)
     for hhash in hash_list:
         block = receive_block_from_peer(random.choice(peer_list), hhash)
@@ -83,10 +78,28 @@ def send_block_hashes():
         hash_list.append(dhash(ACTIVE_CHAIN[i]))
     return jsonify(hash_list)
 
+@app.route("/newblock", methods=["POST"])
+def received_new_block():
+    block_json = str(request.form.get("block", None))
+    if block_json:
+        try:
+            block = Block.from_json(block_json)
+            for ch in BLOCKCHAIN:
+                if ch.add_block(block):
+                    for peer in PEER_LIST:
+                        try:
+                            requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})                            
+                        except Exception as e:
+                            logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
+                            pass
+                        break
+            # TODO Make new chain/ orphan set for Block that is not added
+        except Exception as e:
+            logger.error("Flask: New Block: invalid block received" + str(e))
+            pass
+
 
 if __name__ == "__main__":
-
-    ACTIVE_CHAIN = Chain()
 
     ACTIVE_CHAIN.add_block(genesis_block)
 
