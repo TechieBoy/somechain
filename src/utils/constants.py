@@ -63,3 +63,6 @@ MINER_SERVER_PORT = args.port
 
 # Set Seed Server URL
 SEED_SERVER_URL = args.seed_server
+
+#Coinbase Maturity
+COINBASE_MATURITY = 0

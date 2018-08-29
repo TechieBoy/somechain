@@ -11,7 +11,7 @@ TODO:
 from sys import getsizeof, path
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
-
+import copy
 path.append("..")
 from utils.dataclass_json import DataClassJson
 from utils.storage import get_block_from_db, add_block_to_db
@@ -19,7 +19,6 @@ import utils.constants as consts
 from utils.logger import logger
 from statistics import median
 from utils.utils import merkle_hash, dhash, get_time_difference_from_now_secs
-
 
 @dataclass
 class SingleOutput(DataClassJson):
@@ -278,13 +277,47 @@ class Chain:
                 self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header)
 
     def is_transaction_valid(self, transaction: Transaction):
-        # TODO check for coinbase TxIn Maturity
+        # check for coinbase TxIn Maturity
+        # ensure the TxIn is present in utxo, i.e exists and has not been spent
+        # Verify that the Signature is valid for all inputs
+        sum_of_all_inputs = 0
+        sum_of_all_outputs = 0
+        sign_copy_of_tx = copy.deepcopy(transaction)
+        sign_copy_of_tx.vin = {}
+        for inp, tx_in in transaction.vin.items():
+            tx_out, block_hdr = utxo.get(tx_in.payout)
+            if block_hdr is not None:
+                if not self.header_list[-1].height - block_hdr.height > consts.COINBASE_MATURITY:
+                    logger.debug("Chain: Coinbase not matured")
+                    return False
+            else:
+                logger.debug("Chain: Block header not found in utxo")
+                return False
+                
+            if not Wallet.verify(sign_copy_of_tx.to_json(),tx_in.signature,tx_in.public_key):
+                logger.debug("Chain: Invalid Signature")
+                return False
+            sum_of_all_inputs += tx_out.amount
 
-        # TODO ensure the TxIn is present in utxo, i.e exists and has not been spent
-        # TODO ensure sum of amounts of all inputs is in valid amount range
-        # TODO ensure sum of amounts of all inputs is > sum of amounts of all outputs
-        # TODO Verify that the Signature is valid for all inputs
-        pass
+        if sum_of_all_inputs > consts.MAX_SATOSHIS_POSSIBLE or sum_of_all_inputs < 0:
+            logger.debug("Chain: Invalid input Amount")
+            return False
+        
+        for out, tx in transaction.vout.items():
+            sum_of_all_outputs += tx.amount
+
+        # ensure sum of amounts of all inputs is in valid amount range
+        if sum_of_all_outputs > consts.MAX_SATOSHIS_POSSIBLE or sum_of_all_outputs < 0:
+            logger.debug("Chain: Invalid output Amount")
+            return False
+
+        # ensure sum of amounts of all inputs is > sum of amounts of all outputs
+        if not sum_of_all_inputs > sum_of_all_outputs:
+            logger.debug("Chain: input sum less than output sum")
+            return False
+
+        
+        
 
     def is_block_valid(self, block: Block):
         # Check if the block is valid -1

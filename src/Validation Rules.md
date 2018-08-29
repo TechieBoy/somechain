@@ -11,7 +11,7 @@
 - For each input, if the referenced output exists in any other tx in the pool, reject this transaction.[5] `Skipping, TODO in Miner`
 - For each input, look in the main branch and the transaction pool to find the referenced output transaction. `Skipping, TODO in Miner` 
 - If the output transaction is missing for any input, this will be an orphan transaction. Add to the orphan transactions, if a matching transaction is not in there already. `This case should not arise as we dont allow empty TxOut`
-- For each input, if the referenced output transaction is coinbase (i.e. only 1 input, with hash=0, n=-1), it must have at least COINBASE_MATURITY (100) confirmations; else reject this transaction `TODO, Chain: is_transaction_valid() `
+- For each input, if the referenced output transaction is coinbase (i.e. only 1 input, with hash=0, n=-1), it must have at least COINBASE_MATURITY (100) confirmations; else reject this transaction `DONE, Chain: is_transaction_valid() `
 - For each input, if the referenced output does not exist (e.g. never existed or has already been spent), reject this transaction[6] `TODO, Chain: is_transaction_valid()`
 - Using the referenced output transactions to get input values, check that each input value, as well as the sum, are in legal money range `TODO, Chain: is_transaction_valid()`
 - Reject if the sum of input values < sum of output values `TODO, Chain: is_transaction_valid()`
