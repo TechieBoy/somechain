@@ -91,7 +91,8 @@ if __name__ == "__main__":
             locktime=0,
             timestamp=2,
             is_coinbase=True,
-            vin={0: TxIn(payout=None, sig="0", pub_key="", sequence=0)},
+            fees=0,
+            vin={0: TxIn(payout=None, sig="0", pub_key="")},
             vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
         ),
         Transaction(
@@ -99,7 +100,8 @@ if __name__ == "__main__":
             locktime=0,
             timestamp=3,
             is_coinbase=False,
-            vin={0: TxIn(payout=so, sig="signature", pub_key="pubkey", sequence=0)},
+            fees=4000000000,
+            vin={0: TxIn(payout=so, sig="signature", pub_key="pubkey")},
             vout={0: TxOut(amount=1000000000, address="1B1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
         ),
     ]
@@ -126,6 +128,6 @@ if __name__ == "__main__":
     # Start the flask server and listen for future blocks and transactions.
     # Start a thread to handle the new block/transaction
 
-    fetch_peer_list()
+    # fetch_peer_list()
 
-    app.run(host='0.0.0.0', port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
+    # app.run(host='0.0.0.0', port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
