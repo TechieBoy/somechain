@@ -5,10 +5,11 @@ from flask import Flask, jsonify, request
 import time
 import json
 import threading
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Set
 
 sys.path.append("..")
-from core import Block, Chain, genesis_block
+from core import Block, Chain, genesis_block, Transaction
+from miner import Miner
 from utils.storage import get_block_from_db, add_block_to_db
 import utils.constants as consts
 from utils.utils import dhash
@@ -17,11 +18,27 @@ from utils.logger import logger
 
 app = Flask(__name__)
 
+# TODO: Guarantee that ACTIVE_CHAIN is max length chain
 ACTIVE_CHAIN = Chain()
 
 BLOCKCHAIN: List[Chain] = [ACTIVE_CHAIN]
 
 PEER_LIST = []
+
+mempool: Set[Transaction]
+
+PAYOUT_ADDR = "Put my wallet address here"
+
+
+def remove_transactions_from_mempool(block: Block):
+    """Removes transaction from the mempool based on a new received block
+    
+    Arguments:
+        block {Block} -- The block which is received
+    """
+
+    global mempool
+    mempool = set([x for x in mempool if x not in block.transactions])
 
 
 def fetch_peer_list():
@@ -78,6 +95,7 @@ def send_block_hashes():
         hash_list.append(dhash(ACTIVE_CHAIN[i]))
     return jsonify(hash_list)
 
+
 @app.route("/newblock", methods=["POST"])
 def received_new_block():
     block_json = str(request.form.get("block", None))
@@ -88,7 +106,7 @@ def received_new_block():
                 if ch.add_block(block):
                     for peer in PEER_LIST:
                         try:
-                            requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})                            
+                            requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})
                         except Exception as e:
                             logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
                             pass
@@ -129,4 +147,7 @@ if __name__ == "__main__":
     t = threading.Thread(target=func)
     t.start()
 
+    miner = Miner()
+    miner.start_mining(mempool, ACTIVE_CHAIN, PAYOUT_ADDR)
+    miner.stop_mining()
     app.run(port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
