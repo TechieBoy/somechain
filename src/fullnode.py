@@ -4,14 +4,13 @@ import random
 from flask import Flask, jsonify, request
 import time
 import json
-import threading
 from typing import Dict, Any, List, Set
 from threading import Thread
 
 sys.path.append("..")
 from core import Block, Chain, genesis_block, Transaction
 from miner import Miner
-from utils.storage import get_block_from_db, add_block_to_db
+from utils.storage import get_block_from_db
 import utils.constants as consts
 from utils.utils import dhash, get_time_difference_from_now_secs
 from utils.logger import logger
@@ -24,7 +23,7 @@ ACTIVE_CHAIN = Chain()
 
 BLOCKCHAIN: List[Chain] = [ACTIVE_CHAIN]
 
-PEER_LIST = []
+PEER_LIST: List[Dict[str, Any]] = []
 
 MEMPOOL: Set[Transaction] = set()
 
@@ -51,7 +50,7 @@ def start_mining_thread():
 
 def remove_transactions_from_mempool(block: Block):
     """Removes transaction from the mempool based on a new received block
-    
+
     Arguments:
         block {Block} -- The block which is received
     """
@@ -60,7 +59,7 @@ def remove_transactions_from_mempool(block: Block):
     MEMPOOL = set([x for x in MEMPOOL if x not in block.transactions])
 
 
-def fetch_peer_list() -> List[str]:
+def fetch_peer_list() -> List[Dict[str, Any]]:
     try:
         r = requests.post(consts.SEED_SERVER_URL, data={"port": consts.MINER_SERVER_PORT})
         peer_list = json.loads(r.text)
@@ -199,6 +198,6 @@ if __name__ == "__main__":
 
     print(peer_list)
     sync(peer_list)
-
+    start_mining_thread()
     # Start Flask Server
     app.run(port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
