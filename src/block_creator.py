@@ -89,7 +89,8 @@ first_block_transaction = [
         is_coinbase=True,
         fees=0,
         vin={0: TxIn(payout=None, sig="0", pub_key="")},
-        vout={0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC)},
+        vout={0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC),
+                1: TxOut(amount=4000000000, address=consts.WALLET_PUBLIC)},
     ),
     Transaction(
         version=1,
@@ -139,6 +140,6 @@ if __name__ == "__main__":
     # Start the flask server and listen for future blocks and transactions.
     # Start a thread to handle the new block/transaction
 
-    fetch_peer_list()
+    # fetch_peer_list()
 
-    app.run(host="0.0.0.0", port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
+    # app.run(host="0.0.0.0", port=consts.MINER_SERVER_PORT, threaded=True, debug=True)

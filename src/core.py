@@ -407,6 +407,25 @@ class Chain:
                 return False
 
         # Validate that the first coinbase Transaction has valid Block reward and fees
+        remaining_transactions = block.transactions[1:]
+        fee_total = 0
+        for tx in remaining_transactions:
+            if not self.is_transaction_valid(tx):
+                logger.debug("Chain: Transaction not valid")
+                return False
+            else:
+                fee_total += tx.fees
+        if not len(block.transactions[0].vout) == 2:
+            logger.debug("Chain: Coinbase vout length != 2")
+            return False
+
+        if not block.transactions[0].vout[1].amount == fee_total:
+            logger.debug("Chain: Coinbase fee invalid")
+            return False
+
+        if not block.transactions[0].vout[0].amount == self.current_block_reward():
+            logger.debug("Chain: Coinbase reward invalid")
+            return False
         return True
 
     def add_block(self, block: Block):
@@ -462,7 +481,8 @@ genesis_block_transaction = [
         fees=0,
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig="0", pub_key="")},
-        vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
+        vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+               1: TxOut(amount=0, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
     )
 ]
 genesis_block_header = BlockHeader(
