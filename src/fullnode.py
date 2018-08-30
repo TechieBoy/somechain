@@ -113,7 +113,7 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
 
 
 def sync(peer_list):
-    if peer_list and len(peer_list) > 0:
+    if peer_list:
         max_peer = max(peer_list, key=lambda k: k["blockheight"])
         logger.debug(get_peer_url(max_peer))
         r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": ACTIVE_CHAIN.length})
@@ -191,16 +191,7 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: in
 
     tx.fees = fees
 
-    sign_transaction(tx, w)
-
-
-def sign_transaction(transaction: "Transaction", w: Wallet):
-    sign_copy_of_tx = copy.deepcopy(transaction)
-    sign_copy_of_tx.vin = {}
-
-    sig = w.sign(sign_copy_of_tx.to_json())
-    for i in range(0, len(transaction.vin)):
-        transaction.vin[i].sig = sig
+    tx.sign(w)
 
 
 @app.route("/")
