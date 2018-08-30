@@ -20,7 +20,7 @@ def get_time_difference_from_now_secs(timestamp: int) -> int:
     now = datetime.datetime.now()
     mtime = datetime.datetime.fromtimestamp(timestamp)
     difference = mtime - now
-    return difference.total_seconds()
+    return int(difference.total_seconds())
 
 
 def merkle_hash(transactions: List["Transaction"]) -> str:

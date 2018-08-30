@@ -13,7 +13,7 @@ from core import Block, Chain, genesis_block, Transaction
 from miner import Miner
 from utils.storage import get_block_from_db, add_block_to_db
 import utils.constants as consts
-from utils.utils import dhash
+from utils.utils import dhash, get_time_difference_from_now_secs
 from utils.logger import logger
 
 
@@ -36,8 +36,12 @@ miner = Miner()
 def mining_thread_task():
     global miner, MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR
     if not miner.is_mining():
-        miner.start_mining(MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR)
-    time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL)
+        mlist = list(MEMPOOL)
+        fees, size = miner.calculate_transaction_fees_and_size(mlist)
+        time_diff = -get_time_difference_from_now_secs(ACTIVE_CHAIN.header_list[-1].timestamp)
+        if fees >= 1000 or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6) or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / 2):
+            miner.start_mining(MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR)
+    time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL / 5)
 
 
 def start_mining_thread():
@@ -202,6 +206,7 @@ if __name__ == "__main__":
         # print(ACTIVE_CHAIN)
         # print(get_block_from_db(dhash(ACTIVE_CHAIN[0])))
 
+    start_mining_thread()
     t = threading.Thread(target=func)
     t.start()
 

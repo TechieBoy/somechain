@@ -18,7 +18,10 @@ class Miner:
 
     def is_mining(self):
         if self.p:
-            return True
+            if self.p.is_alive():
+                return True
+            else:
+                self.p = None
         return False
 
     def start_mining(self, mempool: Set[Transaction], chain: Chain, payout_addr: str):
@@ -32,6 +35,15 @@ class Miner:
             self.p.terminate()
             self.p = None
             logger.debug("Stopped mining")
+
+    def calculate_transaction_fees_and_size(self, transactions: List[Transaction]) -> Tuple[int, int]:
+        transactions.sort(key=attrgetter("fees"), reverse=True)
+        size = 0
+        fees = 0
+        for t in transactions:
+            size += sys.getsizeof(t.to_json())
+            fees += t.fees
+        return fees, size
 
     def __calculate_best_transactions(self, transactions: List[Transaction]) -> Tuple[List[Transaction], int]:
         """Returns the best transactions to be mined which don't exceed the max block size
