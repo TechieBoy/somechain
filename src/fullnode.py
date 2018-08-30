@@ -7,10 +7,11 @@ import json
 from typing import Dict, Any, List, Set
 from threading import Thread, Timer
 from multiprocessing import Process
-
+from wallet import Wallet
 sys.path.append("..")
-from core import Block, Chain, genesis_block, Transaction
+from core import Block, Chain, genesis_block, Transaction, SingleOutput
 from miner import Miner
+from utils.utils import create_signature
 from utils.storage import get_block_from_db
 import utils.constants as consts
 from utils.utils import dhash, get_time_difference_from_now_secs
@@ -127,6 +128,79 @@ def sync(peer_list):
                 raise Exception("WTF")
     return
 
+def create_wallet():
+    return Wallet()
+
+w = create_wallet()
+
+def display_wallet():
+    print("Public key is : " + w.public_key)
+    print("Private key is : " + w.private_key)
+    
+def check_balance():
+    current_balance = 0
+    for x, utxo_list in ACTIVE_CHAIN.utxo.items():
+        tx_out = utxo_list[0]
+        if(tx_out.address == w.public_key):
+            current_balance += tx_out.amount
+    print("Your current balance is : " + current_balance)
+    return current_balance
+
+def send_bounty(bounty: int, receiver_public_key: str):
+    current_balance = check_balance()
+    if current_balance < bounty:
+        print("Inssuficient balance ")
+        print("Current balance : "+ current_balance)
+        print("you need "+ (current_balance - bounty) + "more money")
+
+    else:
+        transaction = Transaction(
+        version=1,
+        locktime=0,
+        timestamp=2,
+        is_coinbase=False,
+        fees=0,
+        vin={},
+        vout={
+            0: TxOut(amount=bounty, address=receiver_public_key),
+            1: TxOut(amount=0, address=w.public_key),
+        }
+    
+        )
+        calculate_transaction_fees(transaction,w,bounty, fees = 100)
+
+    
+    
+def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty:int,fees: int):
+    current_amount = 0
+    i=0
+    for so, utxo_list in ACTIVE_CHAIN.utxo.items():
+        tx_out = utxo_list[0]
+        if utxo_list[2]:
+            # check for coinbase TxIn Maturity
+            if not ACTIVE_CHAIN.length - utxo_list[1].height > consts.COINBASE_MATURITY:
+                continue
+        if current_amount > bounty:
+            break
+        if(tx_out.address == w.public_key):
+            current_amount += tx_out.amount
+            tx.vin[i].payout = SingleOutput.from_json(so)
+            tx.vin[i].public_key = w.public_key
+            i+=1
+    tx.vout[1].amount = current_amount - bounty - fees
+
+    tx.fees = fees
+
+    create_signature(tx,w)
+
+
+def create_signature(transaction: "Transaction",w: Wallet):
+    sign_copy_of_tx = copy.deepcopy(transaction)
+    sign_copy_of_tx.vin = {}
+    
+    sig = w.sign(sign_copy_of_tx.to_json())
+    for i in range(0,len(transaction.vin)):
+        transaction.vin[i].sig = sig
 
 @app.route("/")
 def hello():
@@ -231,9 +305,11 @@ if __name__ == "__main__":
             print("Welcome to your wallet!")
             option = input("1 -> Check balance\n2 -> Send money")
             if option == 1:
-                pass
+                check_balance()
             elif option == 2:
-                pass
+                bounty = input("Enter bounty\n")
+                receiver_public_key = input("Enter address of receiver\n")
+                send_bounty(bounty, receiver_public_key)
             else:
                 print("Invalid Input. Try Again")
     except KeyboardInterrupt:

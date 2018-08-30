@@ -61,5 +61,6 @@ def create_signature(transaction: "Transaction"):
     sign_copy_of_tx.vin = {}
     w = Wallet([consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
     sig = w.sign(sign_copy_of_tx.to_json())
-    transaction.vin[0].sig = sig
+    for i in range(0,len(transaction.vin)):
+        transaction.vin[i].sig = sig
 
