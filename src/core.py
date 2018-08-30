@@ -255,7 +255,7 @@ class Block(DataClassJson):
 
 @dataclass
 class Utxo:
-    # Mapping from string repr of SingleOutput to List[TxOut, Blockheader]
+    # Mapping from string repr of SingleOutput to List[TxOut, Blockheader, is_Coinbase]
     utxo: Dict[str, List[Any]] = field(default_factory=dict)
 
     def get(self, so: SingleOutput) -> Optional[List[Any]]:
