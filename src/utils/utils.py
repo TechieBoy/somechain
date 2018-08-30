@@ -3,6 +3,9 @@ from typing import List, Union, TYPE_CHECKING
 import hashlib
 import src.utils.constants as consts
 
+from wallet import Wallet
+import copy
+
 if TYPE_CHECKING:
     from src.core import Transaction, BlockHeader  # noqa
 
@@ -51,3 +54,12 @@ def dhash(s: Union[str, "Transaction", "BlockHeader"]) -> str:
         s = str(s)
     s = s.encode()
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
+
+
+def create_signature(transaction: "Transaction"):
+    sign_copy_of_tx = copy.deepcopy(transaction)
+    sign_copy_of_tx.vin = {}
+    w = Wallet([consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
+    sig = w.sign(sign_copy_of_tx.to_json())
+    transaction.vin[0].sig = sig
+

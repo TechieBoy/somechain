@@ -12,9 +12,11 @@ from sys import getsizeof, path
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 import copy
+
 from wallet import Wallet
 import json
 path.append("..")
+from utils.utils import create_signature
 from utils.dataclass_json import DataClassJson
 from utils.storage import get_block_from_db, add_block_to_db
 import utils.constants as consts
@@ -336,7 +338,7 @@ class Chain:
                     return False
 
                 # Verify that the Signature is valid for all inputs
-                if not Wallet.verify(sign_copy_of_tx.to_json(), tx_in.sig, tx_in.pub_key):
+                if not Wallet.verify(sign_copy_of_tx.to_json(), tx_in.sig, tx_out.address):
                     logger.debug("Chain: Invalid Signature")
                     return False
 
@@ -486,11 +488,16 @@ genesis_block_transaction = [
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig="0", pub_key="")},
         vout={
-            0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
-            1: TxOut(amount=0, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC),
+            1: TxOut(amount=0, address=consts.WALLET_PUBLIC),
         },
     )
 ]
+
+for tx in genesis_block_transaction:
+    create_signature(tx)
+
+
 genesis_block_header = BlockHeader(
     version=1,
     prev_block_hash=None,
@@ -501,6 +508,7 @@ genesis_block_header = BlockHeader(
     nonce=2083236893,
 )
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
+
 
 if __name__ == "__main__":
     logger.debug(genesis_block)

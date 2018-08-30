@@ -1,14 +1,18 @@
-from utils import constants as consts
 import json
 import requests
 import random
+from sys import path
 from flask import Flask, jsonify, request
 from core import Transaction, Block, Chain, SingleOutput, TxIn, TxOut, BlockHeader
 from core import genesis_block, genesis_block_transaction, genesis_block_header
 from typing import Dict, List, Any, TYPE_CHECKING
+
+path.append("..")
+from utils import constants as consts
 from utils.utils import merkle_hash, dhash
 from utils.logger import logger
 from utils.storage import get_block_from_db
+from utils.utils import create_signature
 from wallet import Wallet
 import copy
 
@@ -88,9 +92,11 @@ first_block_transaction = [
         timestamp=2,
         is_coinbase=True,
         fees=0,
-        vin={0: TxIn(payout=None, sig="0", pub_key="")},
-        vout={0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC),
-                1: TxOut(amount=4000000000, address=consts.WALLET_PUBLIC)},
+        vin={0: TxIn(payout=None, sig="", pub_key=consts.WALLET_PUBLIC)},
+        vout={
+            0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC),
+            1: TxOut(amount=4000000000, address=consts.WALLET_PUBLIC),
+        },
     ),
     Transaction(
         version=1,
@@ -98,16 +104,14 @@ first_block_transaction = [
         timestamp=3,
         is_coinbase=False,
         fees=4000000000,
-        vin={0: TxIn(payout=so, sig= "", pub_key=consts.WALLET_PUBLIC)},
+        vin={0: TxIn(payout=so, sig="", pub_key=consts.WALLET_PUBLIC)},
         vout={0: TxOut(amount=1000000000, address=consts.WALLET_PUBLIC)},
     ),
 ]
 
-sign_copy_of_tx = copy.deepcopy(first_block_transaction[1])
-sign_copy_of_tx.vin = {}
-w = Wallet(keys=[consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
-sig = w.sign(sign_copy_of_tx.to_json())
-first_block_transaction[1].vin[0].sig = sig
+
+for tx in first_block_transaction:
+    create_signature(tx)
 
 first_block_header = BlockHeader(
     version=1,
