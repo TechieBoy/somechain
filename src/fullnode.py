@@ -130,7 +130,7 @@ def check_balance():
         tx_out = utxo_list[0]
         if(tx_out.address == w.public_key):
             current_balance += tx_out.amount
-
+    print("Your current balance is : " + current_balance)
     return current_balance
 
 def send_bounty(bounty: int, receiver_public_key: str):
