@@ -12,7 +12,6 @@ from utils import constants as consts
 from utils.utils import merkle_hash, dhash
 from utils.logger import logger
 from utils.storage import get_block_from_db
-from utils.utils import create_signature
 from wallet import Wallet
 import copy
 
@@ -85,7 +84,7 @@ def send_block_hashes():
 # The singleOutput for first coinbase transaction in genesis block
 so = SingleOutput(txid=dhash(genesis_block_transaction[0]), vout=0)
 
-first_block_transaction = [
+first_block_transactions = [
     Transaction(
         version=1,
         locktime=0,
@@ -110,14 +109,14 @@ first_block_transaction = [
 ]
 
 
-for tx in first_block_transaction:
-    create_signature(tx)
+for tx in first_block_transactions:
+    tx.sign()
 
 first_block_header = BlockHeader(
     version=1,
     prev_block_hash=dhash(genesis_block_header),
     height=1,
-    merkle_root=merkle_hash(first_block_transaction),
+    merkle_root=merkle_hash(first_block_transactions),
     timestamp=1231006505,
     target_difficulty=0,
     nonce=2083236893,

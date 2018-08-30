@@ -55,12 +55,3 @@ def dhash(s: Union[str, "Transaction", "BlockHeader"]) -> str:
     s = s.encode()
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
 
-
-def create_signature(transaction: "Transaction"):
-    sign_copy_of_tx = copy.deepcopy(transaction)
-    sign_copy_of_tx.vin = {}
-    w = Wallet([consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
-    sig = w.sign(sign_copy_of_tx.to_json())
-    for i in range(0,len(transaction.vin)):
-        transaction.vin[i].sig = sig
-

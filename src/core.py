@@ -16,7 +16,6 @@ import copy
 from wallet import Wallet
 import json
 path.append("..")
-from utils.utils import create_signature
 from utils.dataclass_json import DataClassJson
 from utils.storage import get_block_from_db, add_block_to_db
 import utils.constants as consts
@@ -103,6 +102,15 @@ class Transaction(DataClassJson):
         txin_same = set(self.vin.values()) == set(other.vin.values())
         txout_same = set(self.vout.values()) == set(other.vout.values())
         return attrs_same and txin_same and txout_same
+
+    def sign(self, w=None):
+        sign_copy_of_tx = copy.deepcopy(self)
+        sign_copy_of_tx.vin = {}
+        if w is None:
+            w = Wallet([consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
+        sig = w.sign(sign_copy_of_tx.to_json())
+        for i in self.vin:
+            i.sig = sig
 
     def is_valid(self):
 
@@ -483,10 +491,10 @@ genesis_block_transaction = [
     Transaction(
         version=1,
         locktime=0,
-        timestamp=1,
+        timestamp=1535646190,
         fees=0,
         is_coinbase=True,
-        vin={0: TxIn(payout=None, sig="0", pub_key="")},
+        vin={0: TxIn(payout=None, sig=consts.GENESIS_BLOCK_SIGNATURE, pub_key="")},
         vout={
             0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC),
             1: TxOut(amount=0, address=consts.WALLET_PUBLIC),
@@ -494,18 +502,15 @@ genesis_block_transaction = [
     )
 ]
 
-for tx in genesis_block_transaction:
-    create_signature(tx)
-
 
 genesis_block_header = BlockHeader(
     version=1,
     prev_block_hash=None,
     height=0,
     merkle_root=merkle_hash(genesis_block_transaction),
-    timestamp=1231006505,
-    target_difficulty=0,
-    nonce=2083236893,
+    timestamp=1535646190,
+    target_difficulty=5,
+    nonce=2215855,
 )
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
 

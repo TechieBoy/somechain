@@ -13,7 +13,6 @@ import copy
 sys.path.append("..")
 from core import Block, Chain, genesis_block, Transaction, SingleOutput, TxOut, TxIn
 from miner import Miner
-from utils.utils import create_signature
 from utils.storage import get_block_from_db
 import utils.constants as consts
 from utils.utils import dhash, get_time_difference_from_now_secs
@@ -305,6 +304,7 @@ def user_input():
                 print("Invalid Input. Try Again")
         except Exception as e:
             logger.error("UserInput: " + str(e))
+
 
 if __name__ == "__main__":
     try:
