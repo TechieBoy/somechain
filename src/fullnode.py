@@ -6,6 +6,7 @@ import time
 import json
 from typing import Dict, Any, List, Set
 from threading import Thread
+from multiprocessing import Process
 
 sys.path.append("..")
 from core import Block, Chain, genesis_block, Transaction
@@ -30,6 +31,8 @@ MEMPOOL: Set[Transaction] = set()
 PAYOUT_ADDR = "Put my wallet address here"
 
 miner = Miner()
+
+flask_process: Process = Process(target=app.run, kwargs={"port": consts.MINER_SERVER_PORT, "threaded": True, "debug": True})
 
 
 def mining_thread_task():
@@ -186,18 +189,29 @@ def received_new_transaction():
 
 
 if __name__ == "__main__":
+    try:
+        ACTIVE_CHAIN.add_block(genesis_block)
 
-    ACTIVE_CHAIN.add_block(genesis_block)
+        peer_list = fetch_peer_list()
+        new_peer_list = []
+        for peer in peer_list:
+            if greet_peer(peer):
+                new_peer_list.append(peer)
+        peer_list = new_peer_list
+        # sync(peer_list)
 
-    peer_list = fetch_peer_list()
-    new_peer_list = []
-    for peer in peer_list:
-        if greet_peer(peer):
-            new_peer_list.append(peer)
-    peer_list = new_peer_list
-
-    print(peer_list)
-    sync(peer_list)
-    start_mining_thread()
-    # Start Flask Server
-    app.run(port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
+        # Start Flask Server
+        flask_process.start()
+        start_mining_thread()
+        while True:
+            print("Welcome to your wallet!")
+            option = input("1 -> Check balance\n2 -> Send money")
+            if option == 1:
+                pass
+            elif option == 2:
+                pass
+            else:
+                print("Instructions padhna nahi aata kya andhe")
+    except KeyboardInterrupt:
+        miner.stop_mining()
+        flask_process.terminate()

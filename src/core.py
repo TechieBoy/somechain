@@ -14,7 +14,6 @@ from typing import Optional, List, Dict, Any
 import copy
 from wallet import Wallet
 import json
-from ecdsa.keys import BadSignatureError, BadDigestError
 path.append("..")
 from utils.dataclass_json import DataClassJson
 from utils.storage import get_block_from_db, add_block_to_db
@@ -337,13 +336,9 @@ class Chain:
                     return False
 
                 # Verify that the Signature is valid for all inputs
-                try:
-                    Wallet.verify(sign_copy_of_tx.to_json(), tx_in.sig, tx_in.pub_key)
-                
-                except (BadSignatureError, BadDigestError):
+                if not Wallet.verify(sign_copy_of_tx.to_json(), tx_in.sig, tx_in.pub_key):
                     logger.debug("Chain: Invalid Signature")
                     return False
-
 
                 sum_of_all_inputs += tx_out.amount
 
