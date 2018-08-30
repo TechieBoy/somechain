@@ -105,9 +105,7 @@ first_block_transaction = [
 
 sign_copy_of_tx = copy.deepcopy(first_block_transaction[1])
 sign_copy_of_tx.vin = {}
-w = Wallet()
-w.public_key = consts.WALLET_PUBLIC
-w.private_key = consts.WALLET_PRIVATE
+w = Wallet(keys=[consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
 sig = w.sign(sign_copy_of_tx.to_json())
 first_block_transaction[1].vin[0].sig = sig
 

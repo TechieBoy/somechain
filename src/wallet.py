@@ -4,8 +4,13 @@ import json
 
 
 class Wallet:
-    def __init__(self):
-        self.private_key, self.public_key = self.generate_address()
+    def __init__(self, keys=None):
+        if keys and len(keys) == 2:
+            self.private_key, self.public_key = keys
+        else:
+            self.private_key, self.public_key = self.generate_address()
+
+    def dump_to_file(self):
         with open(consts.WALLET_STORAGE_FILE, "a") as file:
             file.write(json.dumps((self.private_key, self.public_key)))
 
@@ -49,4 +54,3 @@ if __name__ == "__main__":
     print(w.public_key)
     print("hololaaa")
     print(w.private_key)
-

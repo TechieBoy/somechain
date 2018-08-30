@@ -32,7 +32,7 @@ PAYOUT_ADDR = "Put my wallet address here"
 
 miner = Miner()
 
-flask_process: Process = Process(target=app.run, kwargs={"port": consts.MINER_SERVER_PORT, "threaded": True, "debug": True})
+flask_process: Process = Process(target=app.run, kwargs={"port": consts.MINER_SERVER_PORT, "threaded": False, "debug": False})
 
 
 def mining_thread_task():
@@ -41,7 +41,7 @@ def mining_thread_task():
         mlist = list(MEMPOOL)
         fees, size = miner.calculate_transaction_fees_and_size(mlist)
         time_diff = -get_time_difference_from_now_secs(ACTIVE_CHAIN.header_list[-1].timestamp)
-        if fees >= 1000 or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6) or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / 2):
+        if fees >= 1000 or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6) or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP):
             miner.start_mining(MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR)
     time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL / 5)
 
@@ -100,16 +100,19 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
 
 
 def sync(peer_list):
-    max_peer = max(peer_list, key=lambda k: k["blockheight"])
-    logger.debug(get_peer_url(max_peer))
-    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": ACTIVE_CHAIN.length})
-    hash_list = json.loads(r.text)
-    logger.debug(hash_list)
-    for hhash in hash_list:
-        block = receive_block_from_peer(random.choice(peer_list), hhash)
-        if not ACTIVE_CHAIN.add_block(block):
-            logger.error("SYNC: Block received is incomplete")
-            raise Exception("WTF")
+    if peer_list and len(peer_list) > 0:
+        max_peer = max(peer_list, key=lambda k: k["blockheight"])
+        logger.debug(get_peer_url(max_peer))
+        r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": ACTIVE_CHAIN.length})
+        hash_list = json.loads(r.text)
+        logger.debug("Received the Following HashList from peer " + str(max_peer))
+        logger.debug(hash_list)
+        for hhash in hash_list:
+            block = receive_block_from_peer(random.choice(peer_list), hhash)
+            if not ACTIVE_CHAIN.add_block(block):
+                logger.error("SYNC: Block received is invalid, Cannot Sync")
+                raise Exception("WTF")
+    return
 
 
 @app.route("/")
@@ -141,24 +144,29 @@ def received_new_block():
     block_json = str(request.form.get("block", None))
     if block_json:
         try:
-            block = Block.from_json(block_json)
+            block = Block.from_json(block_json).object()
             for ch in BLOCKCHAIN:
                 if ch.add_block(block):
+                    logger.debug("Flask: Received a New Valid Block, Adding to Chain")
                     # Remove the transactions from MemPools
                     remove_transactions_from_mempool(block)
+
+                    # Stop Mining
+                    miner.stop_mining()
+
                     # Broadcast block t other peers
                     for peer in PEER_LIST:
                         try:
                             requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})
                         except Exception as e:
                             logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
-                            pass
-                        break
+                    break
             # TODO Make new chain/ orphan set for Block that is not added
         except Exception as e:
-            logger.error("Flask: New Block: invalid block received" + str(e))
-            pass
-
+            logger.error("Flask: New Block: invalid block received " + str(e))
+            return "Invalid Block Received"
+        return "Block Received"
+    return "Invalid Block"
 
 @app.route("/newtransaction", methods=["POST"])
 def received_new_transaction():
@@ -198,10 +206,11 @@ if __name__ == "__main__":
             if greet_peer(peer):
                 new_peer_list.append(peer)
         peer_list = new_peer_list
-        # sync(peer_list)
+        sync(peer_list)
 
         # Start Flask Server
         flask_process.start()
+        time.sleep(1)
         start_mining_thread()
         while True:
             print("Welcome to your wallet!")
@@ -211,7 +220,7 @@ if __name__ == "__main__":
             elif option == 2:
                 pass
             else:
-                print("Instructions padhna nahi aata kya andhe")
+                print("Invalid Input. Try Again")
     except KeyboardInterrupt:
         miner.stop_mining()
         flask_process.terminate()

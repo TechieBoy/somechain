@@ -71,37 +71,42 @@ class Miner:
     def __mine(self, mempool: Set[Transaction], chain: Chain, payout_addr: str) -> Block:
         c_pool = list(copy.deepcopy(mempool))
         mlist, fees = self.__calculate_best_transactions(c_pool)
-        logger.debug(f"Will mine {len(mlist)} transactions and get {fees} satoshis in fees")
+        logger.debug(f"Miner: Will mine {len(mlist)} transactions and get {fees} satoshis in fees")
+        coinbase_tx_in = {0: TxIn(payout=None, sig="Paisa mila mujhe", pub_key="Ole Ole Ole")}
+        coinbase_tx_out = {
+            0: TxOut(amount=chain.current_block_reward(), address=payout_addr),
+            1: TxOut(amount=fees, address=payout_addr),
+        }
+        coinbase_tx = Transaction(
+            is_coinbase=True,
+            version=consts.MINER_VERSION,
+            fees=0,
+            timestamp=int(time.time()),
+            locktime=-1,
+            vin=coinbase_tx_in,
+            vout=coinbase_tx_out,
+        )
+        mlist.insert(0, coinbase_tx)
+        block_header = BlockHeader(
+            version=consts.MINER_VERSION,
+            height=chain.length + 1,
+            prev_block_hash=dhash(chain.header_list[-1]),
+            merkle_root=merkle_hash(mlist),
+            timestamp=int(time.time()),
+            target_difficulty=chain.target_difficulty,
+            nonce=0,
+        )
         for n in range(2 ** 64):
-            block_header = BlockHeader(
-                version=consts.MINER_VERSION,
-                height=chain.length + 1,
-                prev_block_hash=dhash(chain.header_list[-1]),
-                merkle_root=merkle_hash(mlist),
-                timestamp=int(time.time()),
-                target_difficulty=chain.target_difficulty,
-                nonce=n,
-            )
+            block_header.nonce = n
             bhash = dhash(block_header)
             if chain.is_proper_difficulty(bhash):
-                coinbase_tx_in = {0: TxIn(payout=None, sig="Paisa mila mujhe", pub_key="Ole Ole Ole")}
-                coinbase_tx_out = {
-                    0: TxOut(amount=chain.current_block_reward(), address=payout_addr),
-                    1: TxOut(amount=fees, address=payout_addr),
-                }
-                coinbase_tx = Transaction(
-                    is_coinbase=True,
-                    version=consts.MINER_VERSION,
-                    fees=0,
-                    timestamp=int(time.time()),
-                    locktime=-1,
-                    vin=coinbase_tx_in,
-                    vout=coinbase_tx_out,
-                )
-                mlist.insert(0, coinbase_tx)
                 block = Block(header=block_header, transactions=mlist)
-                requests.post("http://0.0.0.0" + "/newblock", data={"block": block})
-                logger.debug(f"Mined block with hash {bhash}! I'm rich!!")
-                sys.exit()
-        logger.critical("Exhausted all 2 ** 64 values without finding proper hash")
+                r = requests.post(
+                    "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data={"block": block.to_json()}
+                )
+                logger.debug(f"Miner: Response Received {r.text}")
+                logger.debug(f"Miner: Mined block with hash {bhash}! I'm rich!!")
+                self.stop_mining()
+                logger.critical("WTF")
+        logger.critical("Miner: Exhausted all 2 ** 64 values without finding proper hash")
         sys.exit()
