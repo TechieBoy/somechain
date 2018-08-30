@@ -39,7 +39,7 @@ AVERAGE_BLOCK_MINE_INTERVAL = 10 * 60  # seconds
 MAXIMUM_TARGET_DIFFICULTY = 255
 
 # Cheat Code
-BLOCK_MINING_SPEEDUP = 60
+BLOCK_MINING_SPEEDUP = 40
 
 # Define Values from arguments passed
 parser = argparse.ArgumentParser()

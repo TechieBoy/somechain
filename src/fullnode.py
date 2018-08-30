@@ -8,8 +8,10 @@ from typing import Dict, Any, List, Set
 from threading import Thread, Timer
 from multiprocessing import Process
 from wallet import Wallet
+import copy
+
 sys.path.append("..")
-from core import Block, Chain, genesis_block, Transaction, SingleOutput
+from core import Block, Chain, genesis_block, Transaction, SingleOutput, TxOut, TxIn
 from miner import Miner
 from utils.utils import create_signature
 from utils.storage import get_block_from_db
@@ -29,19 +31,9 @@ PEER_LIST: List[Dict[str, Any]] = []
 
 MEMPOOL: Set[Transaction] = set()
 
-PAYOUT_ADDR = "Put my wallet address here"
+PAYOUT_ADDR = consts.WALLET_PUBLIC
 
 miner = Miner()
-
-
-def full_node_processing():
-    t = Thread(target=start_mining_thread, daemon=True)
-    t.start()
-    logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
-    app.run(port=consts.MINER_SERVER_PORT, threaded=True)
-
-
-full_node_process: Process = Process(target=full_node_processing)
 
 
 def mining_thread_task():
@@ -73,7 +65,15 @@ def remove_transactions_from_mempool(block: Block):
     """
 
     global MEMPOOL
-    MEMPOOL = set([x for x in MEMPOOL if x not in block.transactions])
+    new_mempool = set()
+    for x in MEMPOOL:
+        DONE = True
+        for t in block.transactions:
+            if dhash(x) == dhash(t):
+                DONE = False
+        if DONE:
+            new_mempool.add(x)
+    MEMPOOL = new_mempool
 
 
 def fetch_peer_list() -> List[Dict[str, Any]]:
@@ -128,53 +128,55 @@ def sync(peer_list):
                 raise Exception("WTF")
     return
 
-def create_wallet():
-    return Wallet()
 
-w = create_wallet()
+w = Wallet([consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
+
 
 def display_wallet():
     print("Public key is : " + w.public_key)
     print("Private key is : " + w.private_key)
-    
+
+
 def check_balance():
     current_balance = 0
-    for x, utxo_list in ACTIVE_CHAIN.utxo.items():
+    for x, utxo_list in ACTIVE_CHAIN.utxo.utxo.items():
         tx_out = utxo_list[0]
-        if(tx_out.address == w.public_key):
-            current_balance += tx_out.amount
-    print("Your current balance is : " + current_balance)
-    return current_balance
+        if tx_out.address == w.public_key:
+            current_balance += int(tx_out.amount)
+    print("Your current balance is : " + str(current_balance))
+    return int(current_balance)
+
 
 def send_bounty(bounty: int, receiver_public_key: str):
     current_balance = check_balance()
     if current_balance < bounty:
-        print("Inssuficient balance ")
-        print("Current balance : "+ current_balance)
-        print("you need "+ (current_balance - bounty) + "more money")
+        print("Insuficient balance ")
+        print("Current balance : " + str(current_balance))
+        print("you need " + str(current_balance - bounty) + "more money")
 
     else:
         transaction = Transaction(
-        version=1,
-        locktime=0,
-        timestamp=2,
-        is_coinbase=False,
-        fees=0,
-        vin={},
-        vout={
-            0: TxOut(amount=bounty, address=receiver_public_key),
-            1: TxOut(amount=0, address=w.public_key),
-        }
-    
+            version=1,
+            locktime=0,
+            timestamp=2,
+            is_coinbase=False,
+            fees=0,
+            vin={},
+            vout={0: TxOut(amount=bounty, address=receiver_public_key), 1: TxOut(amount=0, address=w.public_key)},
         )
-        calculate_transaction_fees(transaction,w,bounty, fees = 100)
+        calculate_transaction_fees(transaction, w, bounty, fees=100)
 
-    
-    
-def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty:int,fees: int):
+        logger.debug(transaction)
+        logger.debug("Wallet: Attempting to Send Transaction")
+        requests.post(
+            "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newtransaction", data={"transaction": transaction.to_json()}
+        )
+
+
+def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: int):
     current_amount = 0
-    i=0
-    for so, utxo_list in ACTIVE_CHAIN.utxo.items():
+    i = 0
+    for so, utxo_list in ACTIVE_CHAIN.utxo.utxo.items():
         tx_out = utxo_list[0]
         if utxo_list[2]:
             # check for coinbase TxIn Maturity
@@ -182,25 +184,25 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty:int,fees: int)
                 continue
         if current_amount > bounty:
             break
-        if(tx_out.address == w.public_key):
+        if tx_out.address == w.public_key:
             current_amount += tx_out.amount
-            tx.vin[i].payout = SingleOutput.from_json(so)
-            tx.vin[i].public_key = w.public_key
-            i+=1
+            tx.vin[i] = TxIn(payout=SingleOutput.from_json(so), pub_key=w.public_key, sig="")
+            i += 1
     tx.vout[1].amount = current_amount - bounty - fees
 
     tx.fees = fees
 
-    create_signature(tx,w)
+    sign_transaction(tx, w)
 
 
-def create_signature(transaction: "Transaction",w: Wallet):
+def sign_transaction(transaction: "Transaction", w: Wallet):
     sign_copy_of_tx = copy.deepcopy(transaction)
     sign_copy_of_tx.vin = {}
-    
+
     sig = w.sign(sign_copy_of_tx.to_json())
-    for i in range(0,len(transaction.vin)):
+    for i in range(0, len(transaction.vin)):
         transaction.vin[i].sig = sig
+
 
 @app.route("/")
 def hello():
@@ -238,7 +240,6 @@ def received_new_block():
                     logger.debug("Flask: Received a New Valid Block, Adding to Chain")
                     # Remove the transactions from MemPools
                     remove_transactions_from_mempool(block)
-                    logger.debug("FLask: New block, killing miner")
 
                     # Broadcast block t other peers
                     for peer in PEER_LIST:
@@ -287,6 +288,24 @@ def received_new_transaction():
     return jsonify("Done")
 
 
+def user_input():
+    while True:
+        try:
+            print("Welcome to your wallet!")
+            option = input("1 -> Check balance\n2 -> Send money\n")
+            if option == "1":
+                check_balance()
+            elif option == "2":
+                bounty = int(input("Enter bounty\n"))
+                receiver_public_key = input("Enter address of receiver\n")
+                send_bounty(bounty, receiver_public_key)
+            elif option == "3":
+                print(ACTIVE_CHAIN.length)
+            else:
+                print("Invalid Input. Try Again")
+        except Exception as e:
+            logger.error("UserInput: " + str(e))
+
 if __name__ == "__main__":
     try:
         ACTIVE_CHAIN.add_block(genesis_block)
@@ -299,19 +318,15 @@ if __name__ == "__main__":
         peer_list = new_peer_list
         sync(peer_list)
 
+        t = Thread(target=user_input, name="UserInterface", daemon=True)
+        t.start()
+
+        t = Thread(target=start_mining_thread, daemon=True)
+        t.start()
+
         # Start Flask Server
-        full_node_process.start()
-        while True:
-            print("Welcome to your wallet!")
-            option = input("1 -> Check balance\n2 -> Send money")
-            if option == 1:
-                check_balance()
-            elif option == 2:
-                bounty = input("Enter bounty\n")
-                receiver_public_key = input("Enter address of receiver\n")
-                send_bounty(bounty, receiver_public_key)
-            else:
-                print("Invalid Input. Try Again")
+        logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
+        app.run(port=consts.MINER_SERVER_PORT, threaded=True)
+
     except KeyboardInterrupt:
         miner.stop_mining()
-        full_node_process.terminate()
