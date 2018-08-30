@@ -69,14 +69,22 @@ def get_peer_url(peer: Dict[str, Any]) -> str:
     return "http://" + str(peer["ip"]) + ":" + str(peer["port"])
 
 
-def greet_peer(peer: Dict[str, Any]) -> Dict:
+def greet_peer(peer: Dict[str, Any]) -> bool:
     try:
         url = get_peer_url(peer)
+        # Send a GET request to the peer
         r = requests.get(url + "/")
-        return json.loads(r.text)
+        data = json.loads(r.text)
+        # Update the peer data in the peer list with the new data received from the peer.
+        if data.get("blockheight", None):
+            peer.update(data)
+        else:
+            logger.debug("Main: Peer data does not have Block Height")
+            return False
+        return True
     except Exception as e:
         logger.debug("Main: Could not greet peer" + str(e))
-        return {}
+    return False
 
 
 def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
@@ -155,12 +163,11 @@ def received_new_transaction():
             tx = Transaction.from_json(transaction_json).object()
             # Add transaction to Mempool
             if ACTIVE_CHAIN.is_transaction_valid(tx):
+                logger.debug("Valid Transaction received, Adding to Mempool")
                 MEMPOOL.add(tx)
             else:
+                logger.debug("The transation is not valid, not added to Mempool")
                 return jsonify("Not Valid Transaction")
-
-            # miner start mining
-            start_mining_thread()
 
             # Broadcast block t other peers
             for peer in PEER_LIST:
@@ -179,32 +186,14 @@ if __name__ == "__main__":
 
     ACTIVE_CHAIN.add_block(genesis_block)
 
-    # # ORDER
-    # Get list of peers ✓
-    # Contact peers and get current state of blockchain ✓
-    # Sync upto the current blockchain ✓
-    # Start the flask server and listen for future blocks and transactions.
-    # Start a thread to handle the new block/transaction
+    peer_list = fetch_peer_list()
+    for peer in peer_list:
+        # TODO delete the peer if could not establish a connection.
+        print(get_peer_url(peer))
+        data = greet_peer(peer)
 
-    def func():
-        time.sleep(2)  # wait for the flask server to start running
-        peer_list = fetch_peer_list()
-        # # Add yourself as a peer( doing so just to test as currently this node is the only node on the network)
-        # peer_list.append({'ip': "localhost", 'port': consts.MINER_SERVER_PORT, 'time': time.time()})
-        for peer in peer_list:
-            # TODO delete the peer if could not establish a connection.
-            print(get_peer_url(peer))
-            data = greet_peer(peer)
-            # Update the peer data in the peer list with the new data recieved from the peer.
-            peer.update(data)
-        print(peer_list)
-        sync(peer_list)
-        # print(ACTIVE_CHAIN)
-        # print(get_block_from_db(dhash(ACTIVE_CHAIN[0])))
+    print(peer_list)
+    sync(peer_list)
 
-    t = threading.Thread(target=func)
-    t.start()
-
-    # start_mining_thread()
-
+    # Start Flask Server
     app.run(port=consts.MINER_SERVER_PORT, threaded=True, debug=True)

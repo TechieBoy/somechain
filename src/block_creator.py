@@ -78,55 +78,55 @@ def send_block_hashes():
     return jsonify(hash_list)
 
 
+# The singleOutput for first coinbase transaction in genesis block
+so = SingleOutput(txid=dhash(genesis_block_transaction[0]), vout=0)
+
+first_block_transaction = [
+    Transaction(
+        version=1,
+        locktime=0,
+        timestamp=2,
+        is_coinbase=True,
+        fees=0,
+        vin={0: TxIn(payout=None, sig="0", pub_key="")},
+        vout={0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC)},
+    ),
+    Transaction(
+        version=1,
+        locktime=0,
+        timestamp=3,
+        is_coinbase=False,
+        fees=4000000000,
+        vin={0: TxIn(payout=so, sig="", pub_key=consts.WALLET_PUBLIC)},
+        vout={0: TxOut(amount=1000000000, address=consts.WALLET_PUBLIC)},
+    ),
+]
+
+sign_copy_of_tx = copy.deepcopy(first_block_transaction[1])
+sign_copy_of_tx.vin = {}
+w = Wallet()
+w.public_key = consts.WALLET_PUBLIC
+w.private_key = consts.WALLET_PRIVATE
+sig = w.sign(sign_copy_of_tx.to_json())
+first_block_transaction[1].vin[0].sig = sig
+
+first_block_header = BlockHeader(
+    version=1,
+    prev_block_hash=dhash(genesis_block_header),
+    height=1,
+    merkle_root=merkle_hash(first_block_transaction),
+    timestamp=1231006505,
+    target_difficulty=0,
+    nonce=2083236893,
+)
+first_block = Block(header=first_block_header, transactions=first_block_transaction)
+
 if __name__ == "__main__":
 
     result = ACTIVE_CHAIN.add_block(genesis_block)
     logger.debug(result)
 
     logger.debug(ACTIVE_CHAIN.utxo)
-
-    # The singleOutput for first coinbase transaction in genesis block
-    so = SingleOutput(txid=dhash(genesis_block_transaction[0]), vout=0)
-
-    first_block_transaction = [
-        Transaction(
-            version=1,
-            locktime=0,
-            timestamp=2,
-            is_coinbase=True,
-            fees=0,
-            vin={0: TxIn(payout=None, sig="0", pub_key="")},
-            vout={0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC)},
-        ),
-        Transaction(
-            version=1,
-            locktime=0,
-            timestamp=3,
-            is_coinbase=False,
-            fees=4000000000,
-            vin={0: TxIn(payout=so, sig="", pub_key=consts.WALLET_PUBLIC)},
-            vout={0: TxOut(amount=1000000000, address=consts.WALLET_PUBLIC)},
-        ),
-    ]
-
-    sign_copy_of_tx = copy.deepcopy(first_block_transaction[1])
-    sign_copy_of_tx.vin = {}
-    w = Wallet()
-    w.public_key = consts.WALLET_PUBLIC
-    w.private_key = consts.WALLET_PRIVATE
-    sig = w.sign(sign_copy_of_tx.to_json())
-    first_block_transaction[1].vin[0].sig = sig
-
-    first_block_header = BlockHeader(
-        version=1,
-        prev_block_hash=dhash(genesis_block_header),
-        height=1,
-        merkle_root=merkle_hash(first_block_transaction),
-        timestamp=1231006505,
-        target_difficulty=0,
-        nonce=2083236893,
-    )
-    first_block = Block(header=first_block_header, transactions=first_block_transaction)
 
     result = ACTIVE_CHAIN.add_block(first_block)
     logger.debug(result)

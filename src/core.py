@@ -78,7 +78,6 @@ class TxIn(DataClassJson, dict):
                 # Ensure the sig and pubkey are valid
                 if len(self.sig or "") == 0 or len(self.pub_key or "") == 0:
                     logger.debug("TxIN: Sig/Pubkey of invalid length")
-                    logger.debug(self.sig)
                     return False
             except Exception as e:
                 logger.error(e)
@@ -134,7 +133,7 @@ class Transaction(DataClassJson):
             logger.debug("Transaction: Locktime Verify Failed")
             return False
         return True
-    
+
     def object(self):
         newtransaction = copy.deepcopy(self)
         n_vin = {}
@@ -143,19 +142,18 @@ class Transaction(DataClassJson):
                 n_vin[int(j)] = TxIn.from_json(json.dumps(tx_in))
             else:
                 n_vin[int(j)] = copy.deepcopy(tx_in)
-        
+
         n_vout = {}
         for j, tx_out in self.vout.items():
             if not isinstance(tx_out, TxOut):
                 n_vout[int(j)] = TxOut.from_json(json.dumps(tx_out))
             else:
                 n_vout[int(j)] = copy.deepcopy(tx_out)
-        
+
         newtransaction.vin = n_vin
         newtransaction.vout = n_vout
 
         return newtransaction
-
 
     # Whether this transaction is coinbase transaction
     is_coinbase: bool
@@ -220,7 +218,7 @@ class Block(DataClassJson):
     # Validate object
     def object(self):
         newblock = copy.deepcopy(self)
-        for i, tx in enumerate(self.transactions):            
+        for i, tx in enumerate(self.transactions):
             newblock.transactions[i] = self.transactions[i].object()
         return newblock
 
@@ -263,8 +261,6 @@ class Utxo:
         so_str = so.to_json()
         if so_str in self.utxo:
             return self.utxo[so_str]
-        logger.error(so_str)
-        logger.error(self.utxo)
         return None, None, None
 
     def set(self, so: SingleOutput, txout: TxOut, blockheader: BlockHeader, is_coinbase: bool):
@@ -315,9 +311,6 @@ class Chain:
                 self.utxo.set(SingleOutput(txid=thash, vout=touput), t.vout[touput], block.header, t.is_coinbase)
 
     def is_transaction_valid(self, transaction: Transaction):
-        # check for coinbase TxIn Maturity
-        # ensure the TxIn is present in utxo, i.e exists and has not been spent
-        # Verify that the Signature is valid for all inputs
         if not transaction.is_valid():
             return False
 
@@ -328,17 +321,20 @@ class Chain:
         for inp, tx_in in transaction.vin.items():
             if tx_in.payout is not None:
                 tx_out, block_hdr, is_coinbase = self.utxo.get(tx_in.payout)
+                # ensure the TxIn is present in utxo, i.e exists and has not been spent
                 if block_hdr is not None:
                     if is_coinbase:
+                        # check for coinbase TxIn Maturity
                         if not self.length - block_hdr.height > consts.COINBASE_MATURITY:
                             logger.debug(str(self.length) + " " + str(block_hdr.height))
                             logger.debug("Chain: Coinbase not matured")
                             return False
                 else:
                     logger.debug(tx_in.payout)
-                    logger.debug("Chain: Block header not found in utxo")
+                    logger.debug("Chain: Transaction not present in utxo")
                     return False
 
+                # Verify that the Signature is valid for all inputs
                 if not Wallet.verify(sign_copy_of_tx.to_json(), tx_in.sig, tx_in.pub_key):
                     logger.debug("Chain: Invalid Signature")
                     return False
@@ -361,6 +357,7 @@ class Chain:
             logger.debug("Chain: input sum less than output sum")
             return False
 
+        # ensure that the advertised transaction fees is valid
         if not sum_of_all_inputs - sum_of_all_outputs == transaction.fees and not transaction.is_coinbase:
             logger.debug("Chain: transaction fees not valid")
             return False
@@ -408,6 +405,8 @@ class Chain:
             if not self.is_transaction_valid(tx):
                 logger.debug("Chain: Transaction not valid")
                 return False
+
+        # Validate that the first coinbase Transaction has valid Block reward and fees
         return True
 
     def add_block(self, block: Block):
@@ -452,7 +451,7 @@ class Chain:
         Returns:
             int -- The current block reward in satoshis
         """
-        return 0
+        return 5000000000
 
 
 genesis_block_transaction = [

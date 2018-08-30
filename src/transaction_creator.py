@@ -9,6 +9,7 @@ from typing import Dict, List, Any, TYPE_CHECKING
 from utils.utils import merkle_hash, dhash
 from utils.logger import logger
 from utils.storage import get_block_from_db
+from block_creator import first_block_transaction
 from wallet import Wallet
 import copy
 
@@ -26,7 +27,7 @@ def get_peer_url(peer: Dict[str, Any]) -> str:
 if __name__ == "__main__":
 
     # The singleOutput for first coinbase transaction in genesis block
-    so = SingleOutput(txid=dhash(genesis_block_transaction[0]), vout=0)
+    so = SingleOutput(txid=dhash(first_block_transaction[0]), vout=0)
 
     first_transaction = Transaction(
         version=1,
