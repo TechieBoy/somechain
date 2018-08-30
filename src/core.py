@@ -289,8 +289,10 @@ class Chain:
     # The Target difficulty
     target_difficulty: int = 0
 
+    # The Number of Coins in existence
+    total_satoshis: int = 0
+
     # Build the UTXO Set from scratch
-    # TODO Test this lol
     def build_utxo(self):
         for header in self.header_list:
             block = Block.from_json(get_block_from_db(dhash(header)))
@@ -435,7 +437,7 @@ class Chain:
             self.update_utxo(block)
             self.update_target_difficulty()
             self.length = len(self.header_list)
-
+            self.total_satoshis = self.current_block_reward()
             logger.info("Chain: Added Block " + str(block))
             return True
         return False
@@ -463,14 +465,16 @@ class Chain:
             return False
         return True
 
-    # TODO
     def current_block_reward(self) -> int:
         """Returns the current block reward
         
         Returns:
             int -- The current block reward in satoshis
         """
-        return 5000000000
+        if self.total_satoshis < consts.MAX_SATOSHIS_POSSIBLE:
+            phase = self.length // consts.REWARD_UPDATE_INTERVAL
+            return consts.INITIAL_BLOCK_REWARD / (2 ** phase)
+        return 0
 
 
 genesis_block_transaction = [
@@ -481,8 +485,10 @@ genesis_block_transaction = [
         fees=0,
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig="0", pub_key="")},
-        vout={0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
-               1: TxOut(amount=0, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")},
+        vout={
+            0: TxOut(amount=5000000000, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            1: TxOut(amount=0, address="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+        },
     )
 ]
 genesis_block_header = BlockHeader(

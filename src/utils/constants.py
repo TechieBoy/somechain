@@ -28,6 +28,9 @@ HASH_LENGTH_HEX = 64  # 256 bit string is 64 hexa_dec string
 MAX_BLOCK_SIZE_KB = 4096
 MAX_SATOSHIS_POSSIBLE = 21_000_000 * 100_000_000
 
+INITIAL_BLOCK_REWARD = 50 * 100_000_000
+REWARD_UPDATE_INTERVAL = 20_000
+
 # A block cannot have timestamp greater than this time in the future
 BLOCK_MAX_TIME_FUTURE_SECS = 2 * 60 * 60
 
