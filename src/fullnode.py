@@ -5,7 +5,7 @@ from flask import Flask, jsonify, request
 import time
 import json
 from typing import Dict, Any, List, Set
-from threading import Thread
+from threading import Thread, Timer
 from multiprocessing import Process
 
 sys.path.append("..")
@@ -32,21 +32,34 @@ PAYOUT_ADDR = "Put my wallet address here"
 
 miner = Miner()
 
-flask_process: Process = Process(target=app.run, kwargs={"port": consts.MINER_SERVER_PORT, "threaded": False, "debug": False})
+
+def full_node_processing():
+    t = Thread(target=start_mining_thread, daemon=True)
+    t.start()
+    logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
+    app.run(port=consts.MINER_SERVER_PORT, threaded=True)
+
+
+full_node_process: Process = Process(target=full_node_processing)
 
 
 def mining_thread_task():
-    global miner, MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR
-    if not miner.is_mining():
-        mlist = list(MEMPOOL)
-        fees, size = miner.calculate_transaction_fees_and_size(mlist)
-        time_diff = -get_time_difference_from_now_secs(ACTIVE_CHAIN.header_list[-1].timestamp)
-        if fees >= 1000 or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6) or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP):
-            miner.start_mining(MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR)
-    time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL / 5)
+    while True:
+        if not miner.is_mining():
+            mlist = list(MEMPOOL)
+            fees, size = miner.calculate_transaction_fees_and_size(mlist)
+            time_diff = -get_time_difference_from_now_secs(ACTIVE_CHAIN.header_list[-1].timestamp)
+            if (
+                fees >= 1000
+                or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6)
+                or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
+            ):
+                miner.start_mining(MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR)
+        time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
 
 
 def start_mining_thread():
+    time.sleep(5)
     t = Thread(target=mining_thread_task, name="Miner", daemon=True)
     t.start()
 
@@ -141,6 +154,7 @@ def send_block_hashes():
 
 @app.route("/newblock", methods=["POST"])
 def received_new_block():
+    global BLOCKCHAIN
     block_json = str(request.form.get("block", None))
     if block_json:
         try:
@@ -150,9 +164,7 @@ def received_new_block():
                     logger.debug("Flask: Received a New Valid Block, Adding to Chain")
                     # Remove the transactions from MemPools
                     remove_transactions_from_mempool(block)
-
-                    # Stop Mining
-                    miner.stop_mining()
+                    logger.debug("FLask: New block, killing miner")
 
                     # Broadcast block t other peers
                     for peer in PEER_LIST:
@@ -165,8 +177,13 @@ def received_new_block():
         except Exception as e:
             logger.error("Flask: New Block: invalid block received " + str(e))
             return "Invalid Block Received"
+
+        # Kill Miner
+        t = Timer(1, miner.stop_mining)
+        t.start()
         return "Block Received"
     return "Invalid Block"
+
 
 @app.route("/newtransaction", methods=["POST"])
 def received_new_transaction():
@@ -209,9 +226,7 @@ if __name__ == "__main__":
         sync(peer_list)
 
         # Start Flask Server
-        flask_process.start()
-        time.sleep(1)
-        start_mining_thread()
+        full_node_process.start()
         while True:
             print("Welcome to your wallet!")
             option = input("1 -> Check balance\n2 -> Send money")
@@ -223,4 +238,4 @@ if __name__ == "__main__":
                 print("Invalid Input. Try Again")
     except KeyboardInterrupt:
         miner.stop_mining()
-        flask_process.terminate()
+        full_node_process.terminate()

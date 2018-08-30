@@ -32,9 +32,9 @@ class Miner:
 
     def stop_mining(self):
         if self.is_mining():
-            self.p.terminate()
             self.p = None
-            logger.debug("Stopped mining")
+            logger.debug("Miner: Called Stop Mining")
+            self.p.terminate()
 
     def calculate_transaction_fees_and_size(self, transactions: List[Transaction]) -> Tuple[int, int]:
         transactions.sort(key=attrgetter("fees"), reverse=True)
@@ -96,6 +96,7 @@ class Miner:
             target_difficulty=chain.target_difficulty,
             nonce=0,
         )
+        DONE = False
         for n in range(2 ** 64):
             block_header.nonce = n
             bhash = dhash(block_header)
@@ -105,8 +106,8 @@ class Miner:
                     "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data={"block": block.to_json()}
                 )
                 logger.debug(f"Miner: Response Received {r.text}")
-                logger.debug(f"Miner: Mined block with hash {bhash}! I'm rich!!")
-                self.stop_mining()
-                logger.critical("WTF")
-        logger.critical("Miner: Exhausted all 2 ** 64 values without finding proper hash")
-        sys.exit()
+                logger.info(f"Miner: Mined block with hash {bhash}!")
+                DONE = True
+                break
+        if not DONE:
+            logger.error("Miner: Exhausted all 2 ** 64 values without finding proper hash")
