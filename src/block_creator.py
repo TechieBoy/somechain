@@ -98,7 +98,7 @@ first_block_transaction = [
         timestamp=3,
         is_coinbase=False,
         fees=4000000000,
-        vin={0: TxIn(payout=so, sig="", pub_key=consts.WALLET_PUBLIC)},
+        vin={0: TxIn(payout=so, sig= "", pub_key=consts.WALLET_PUBLIC)},
         vout={0: TxOut(amount=1000000000, address=consts.WALLET_PUBLIC)},
     ),
 ]
