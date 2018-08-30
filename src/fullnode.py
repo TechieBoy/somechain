@@ -163,6 +163,10 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty:int,fees: int)
     i=0
     for so, utxo_list in ACTIVE_CHAIN.utxo.items():
         tx_out = utxo_list[0]
+        if utxo_list[2]:
+            # check for coinbase TxIn Maturity
+            if not ACTIVE_CHAIN.length - utxo_list[1].height > consts.COINBASE_MATURITY:
+                continue
         if current_amount > bounty:
             break
         if(tx_out.address == w.public_key):
