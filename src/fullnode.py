@@ -290,9 +290,11 @@ if __name__ == "__main__":
             print("Welcome to your wallet!")
             option = input("1 -> Check balance\n2 -> Send money")
             if option == 1:
-                pass
+                check_balance()
             elif option == 2:
-                pass
+                bounty = input("Enter bounty\n")
+                receiver_public_key = input("Enter address of receiver\n")
+                send_bounty(bounty, receiver_public_key)
             else:
                 print("Invalid Input. Try Again")
     except KeyboardInterrupt:
