@@ -106,7 +106,8 @@ class Miner:
                     "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data={"block": block.to_json()}
                 )
                 logger.debug(f"Miner: Response Received {r.text}")
-                logger.info(f"Miner: Mined block with hash {bhash}!")
+                logger.info(f"Miner: Mined Block with {len(mlist)} transactions, Got {fees} in fees and {chain.current_block_reward()} as reward")
+                logger.info(f"Miner: Mined block has hash {bhash}")
                 DONE = True
                 break
         if not DONE:

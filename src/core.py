@@ -14,7 +14,6 @@ from typing import Optional, List, Dict, Any
 import copy
 from operator import attrgetter
 
-from wallet import Wallet
 import json
 
 path.append("..")
@@ -24,6 +23,7 @@ import utils.constants as consts
 from utils.logger import logger
 from statistics import median
 from utils.utils import merkle_hash, dhash, get_time_difference_from_now_secs
+from wallet import Wallet
 
 
 @dataclass
@@ -101,8 +101,16 @@ class Transaction(DataClassJson):
     def __eq__(self, other):
         attrs_sam = self.is_coinbase == other.is_coinbase and self.version == other.version
         attrs_same = attrs_sam and self.timestamp == other.timestamp and self.locktime == other.locktime
-        txin_same = set(self.vin.values()) == set(other.vin.values())
-        txout_same = set(self.vout.values()) == set(other.vout.values())
+        txin_same = True
+        for txin in self.vin.values():
+            if txin not in other.vin.values():
+                txin_same = False
+                break
+        txout_same = True
+        for txout in self.vout.values():
+            if txout not in other.vout.values():
+                txout_same = False
+                break
         return attrs_same and txin_same and txout_same
 
     def sign(self, w=None):
@@ -463,7 +471,7 @@ class Chain:
             if time_elapsed / num_of_blocks < consts.AVERAGE_BLOCK_MINE_INTERVAL:
                 if self.target_difficulty < consts.MAXIMUM_TARGET_DIFFICULTY:
                     self.target_difficulty += 1
-                    logger.info("Updating Block Difficulty" + str(self.target_difficulty))
+                    logger.info("Updating Block Difficulty to " + str(self.target_difficulty))
 
     def is_proper_difficulty(self, bhash: str) -> bool:
         pow = 0
