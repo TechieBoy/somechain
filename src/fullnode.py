@@ -7,7 +7,6 @@ import json
 from typing import Dict, Any, List, Set
 from threading import Thread, Timer
 from multiprocessing import Process
-from wallet import Wallet
 import copy
 
 sys.path.append("..")
@@ -17,6 +16,7 @@ from utils.storage import get_block_from_db
 import utils.constants as consts
 from utils.utils import dhash, get_time_difference_from_now_secs
 from utils.logger import logger
+from wallet import Wallet
 
 
 app = Flask(__name__)
@@ -30,7 +30,7 @@ PEER_LIST: List[Dict[str, Any]] = []
 
 MEMPOOL: Set[Transaction] = set()
 
-PAYOUT_ADDR = consts.WALLET_PUBLIC
+MY_WALLET = Wallet()
 
 miner = Miner()
 
@@ -46,7 +46,7 @@ def mining_thread_task():
                 or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6)
                 or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
             ):
-                miner.start_mining(MEMPOOL, ACTIVE_CHAIN, PAYOUT_ADDR)
+                miner.start_mining(MEMPOOL, ACTIVE_CHAIN, MY_WALLET.public_key)
         time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
 
 
@@ -128,19 +128,17 @@ def sync(peer_list):
     return
 
 
-w = Wallet([consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
-
-
 def display_wallet():
-    print("Public key is : " + w.public_key)
-    print("Private key is : " + w.private_key)
+    print("Public key is : " + MY_WALLET.public_key)
+    print("Private key is : " + MY_WALLET.private_key)
 
 
 def check_balance():
+    display_wallet()
     current_balance = 0
     for x, utxo_list in ACTIVE_CHAIN.utxo.utxo.items():
         tx_out = utxo_list[0]
-        if tx_out.address == w.public_key:
+        if tx_out.address == MY_WALLET.public_key:
             current_balance += int(tx_out.amount)
     print("Your current balance is : " + str(current_balance))
     return int(current_balance)
@@ -161,12 +159,12 @@ def send_bounty(bounty: int, receiver_public_key: str):
             is_coinbase=False,
             fees=0,
             vin={},
-            vout={0: TxOut(amount=bounty, address=receiver_public_key), 1: TxOut(amount=0, address=w.public_key)},
+            vout={0: TxOut(amount=bounty, address=receiver_public_key), 1: TxOut(amount=0, address=MY_WALLET.public_key)},
         )
-        calculate_transaction_fees(transaction, w, bounty, fees=100)
+        calculate_transaction_fees(transaction, MY_WALLET, bounty, fees=100)
 
         logger.debug(transaction)
-        logger.debug("Wallet: Attempting to Send Transaction")
+        logger.info("Wallet: Attempting to Send Transaction")
         requests.post(
             "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newtransaction", data={"transaction": transaction.to_json()}
         )

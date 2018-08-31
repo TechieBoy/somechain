@@ -1,18 +1,30 @@
 from ecdsa import SigningKey, VerifyingKey, SECP256k1, BadDigestError, BadSignatureError
 import utils.constants as consts
+from utils.storage import get_wallet_from_db, add_wallet_to_db
+from utils.dataclass_json import DataClassJson
+from utils.logger import logger
 import json
 
 
-class Wallet:
-    def __init__(self, keys=None):
-        if keys and len(keys) == 2:
-            self.private_key, self.public_key = keys
-        else:
-            self.private_key, self.public_key = self.generate_address()
+PORT = str(consts.MINER_SERVER_PORT)
 
-    def dump_to_file(self):
-        with open(consts.WALLET_STORAGE_FILE, "a") as file:
-            file.write(json.dumps((self.private_key, self.public_key)))
+
+class Wallet():
+
+    private_key: str = None
+    public_key: str = None
+
+    def __init__(self):
+        wallet = get_wallet_from_db(PORT)
+        if wallet:
+            self.private_key, self.public_key = json.loads(wallet)
+            logger.info("Wallet: Restoring Existing Wallet")
+            return
+
+        self.private_key, self.public_key = self.generate_address()
+        logger.info("Wallet: Creating new Wallet")
+        logger.info(self)
+        result = add_wallet_to_db(PORT, json.dumps([self.private_key, self.public_key]))
 
     def __repr__(self):
         return f"PubKey:{self.public_key}\nPrivKey:{self.private_key}"

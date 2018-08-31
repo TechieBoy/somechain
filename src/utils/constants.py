@@ -8,7 +8,8 @@ DATE_FORMAT = "%d %b %H:%M:%S"
 LOG_LEVEL = logging.DEBUG
 
 # WALLET CONSTANTS
-WALLET_STORAGE_FILE = "wallets.log"
+WALLET_DB_LOC = "wallet.db"
+
 
 # DNS SEED CONSTANTS
 ENTRY_DURATION = 60 * 60 * 24 * 1  # duration in seconds
