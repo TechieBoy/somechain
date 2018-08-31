@@ -194,7 +194,7 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: in
 
 @app.route("/")
 def hello():
-    data = {"version": consts.MINER_VERSION, "blockheight": len(ACTIVE_CHAIN)}
+    data = {"version": consts.MINER_VERSION, "blockheight": ACTIVE_CHAIN.length}
     return jsonify(data)
 
 
@@ -315,7 +315,7 @@ if __name__ == "__main__":
 
         # Start Flask Server
         logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
-        app.run(port=consts.MINER_SERVER_PORT, threaded=True)
+        app.run(port=consts.MINER_SERVER_PORT, threaded=True, host="0.0.0.0")
 
     except KeyboardInterrupt:
         miner.stop_mining()
