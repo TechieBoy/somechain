@@ -210,7 +210,7 @@ def getblock():
 def send_block_hashes():
     peer_height = int(request.form.get("myheight"))
     hash_list = []
-    for i in range(peer_height + 1, ACTIVE_CHAIN.length):
+    for i in range(peer_height, ACTIVE_CHAIN.length):
         hash_list.append(dhash(ACTIVE_CHAIN.header_list[i]))
     logger.debug(hash_list)
     return jsonify(hash_list)
