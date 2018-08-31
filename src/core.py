@@ -12,9 +12,11 @@ from sys import getsizeof, path
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 import copy
+from operator import attrgetter
 
 from wallet import Wallet
 import json
+
 path.append("..")
 from utils.dataclass_json import DataClassJson
 from utils.storage import get_block_from_db, add_block_to_db
@@ -440,7 +442,7 @@ class Chain:
             return False
         return True
 
-    def add_block(self, block: Block):
+    def add_block(self, block: Block) -> bool:
         if self.is_block_valid(block):
             self.header_list.append(block.header)
             add_block_to_db(block)
@@ -486,6 +488,48 @@ class Chain:
         return 0
 
 
+@dataclass
+class BlockChain:
+    chains: List[Chain] = field(default_factory=list, init=False)
+
+    active_chain_candidates: List[Chain]
+
+    def update_active_chain(self):
+        sorted_chains = sorted(self.chains, key=attrgetter("length"), reverse=True)
+        max_length = sorted_chains[0].length
+        self.active_chain_candidates = [c for c in sorted_chains if c.length == max_length]
+
+    def add_block(self, block: Block):
+        added_block = False
+        for chain in self.chains:
+            if block.header.prev_block_hash == dhash(chain.header_list[-1]):
+                if chain.add_block(block):
+                    self.update_active_chain()
+                    added_block = True
+        self.chains.sort(key=attrgetter("length"), reverse=True)
+        if not added_block:
+            for chain in self.chains:
+                hlist = chain.header_list
+                for h in reversed(hlist):
+                    if dhash(h) == block.header.prev_block_hash:
+                        nchain = copy.deepcopy(chain)
+                        newhlist = []
+                        for hh in hlist:
+                            if dhash(hh) != block.header.prev_block_hash:
+                                newhlist.append(hh)
+                            else:
+                                break
+                        nchain.header_list = newhlist
+                        nchain.build_utxo()
+                        self.chains.append(nchain)
+                        self.update_active_chain()
+                        added_block = True
+                        break
+                if added_block:
+                    break
+        return added_block
+
+
 genesis_block_transaction = [
     Transaction(
         version=1,
@@ -494,10 +538,7 @@ genesis_block_transaction = [
         fees=0,
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig=consts.GENESIS_BLOCK_SIGNATURE, pub_key="")},
-        vout={
-            0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC),
-            1: TxOut(amount=0, address=consts.WALLET_PUBLIC),
-        },
+        vout={0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC), 1: TxOut(amount=0, address=consts.WALLET_PUBLIC)},
     )
 ]
 
