@@ -10,12 +10,6 @@ __pycache__/
 # C extensions
 *.so
 
-# DB files
-*.db
-
-# Logging Files
-*.log
-
 # Distribution / packaging
 .Python
 build/

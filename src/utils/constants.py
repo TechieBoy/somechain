@@ -34,8 +34,10 @@ REWARD_UPDATE_INTERVAL = 20_000
 # A block cannot have timestamp greater than this time in the future
 BLOCK_MAX_TIME_FUTURE_SECS = 2 * 60 * 60
 
-BLOCK_DIFFICULTY_UPDATE_INTERVAL = 1024  # number of blocks
-AVERAGE_BLOCK_MINE_INTERVAL = 10 * 60  # seconds
+INITIAL_BLOCK_DIFFICULTY = 1
+
+BLOCK_DIFFICULTY_UPDATE_INTERVAL = 4  # number of blocks
+AVERAGE_BLOCK_MINE_INTERVAL = 30  # seconds
 MAXIMUM_TARGET_DIFFICULTY = 255
 
 # Cheat Code

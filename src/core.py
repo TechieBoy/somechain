@@ -110,7 +110,7 @@ class Transaction(DataClassJson):
             w = Wallet([consts.WALLET_PRIVATE, consts.WALLET_PUBLIC])
         sig = w.sign(sign_copy_of_tx.to_json())
         for i in self.vin:
-            i.sig = sig
+            self.vin[i].sig = sig
 
     def is_valid(self):
 
@@ -296,7 +296,7 @@ class Chain:
     utxo: Utxo = Utxo()
 
     # The Target difficulty
-    target_difficulty: int = 0
+    target_difficulty: int = consts.INITIAL_BLOCK_DIFFICULTY
 
     # The Number of Coins in existence
     total_satoshis: int = 0
@@ -383,7 +383,7 @@ class Chain:
             return False
 
         # Block hash should have proper difficulty -2
-        if not block.header.target_difficulty == self.target_difficulty:
+        if not block.header.target_difficulty >= self.target_difficulty:
             logger.debug("Chain: BlockHeader has invalid difficulty")
             return False
         if not self.is_proper_difficulty(dhash(block.header)):
@@ -401,7 +401,7 @@ class Chain:
             last_11 = self.header_list[-11:]
             last_11_timestamp = []
             for bl in last_11:
-                last_11_timestamp.append(bl.header.timestamp)
+                last_11_timestamp.append(bl.timestamp)
             med = median(last_11_timestamp)
             if block.header.timestamp <= med:
                 logger.debug("Chain: Median time past")
@@ -458,10 +458,10 @@ class Chain:
         if length > 0 and length % dui == 0:
             time_elapsed = self.header_list[-1].timestamp - self.header_list[-dui].timestamp
             num_of_blocks = dui if length > dui else length
-            if time_elapsed / num_of_blocks > consts.AVERAGE_BLOCK_MINE_INTERVAL:
+            if time_elapsed / num_of_blocks < consts.AVERAGE_BLOCK_MINE_INTERVAL:
                 if self.target_difficulty < consts.MAXIMUM_TARGET_DIFFICULTY:
-                    logger.info("Updating Block Difficulty")
                     self.target_difficulty += 1
+                    logger.info("Updating Block Difficulty" + str(self.target_difficulty))
 
     def is_proper_difficulty(self, bhash: str) -> bool:
         pow = 0
@@ -471,7 +471,6 @@ class Chain:
             else:
                 pow += 1
         if pow < self.target_difficulty:
-            logger.debug("Chain: POW not valid")
             return False
         return True
 

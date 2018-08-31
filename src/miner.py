@@ -32,9 +32,9 @@ class Miner:
 
     def stop_mining(self):
         if self.is_mining():
-            self.p = None
             logger.debug("Miner: Called Stop Mining")
             self.p.terminate()
+            self.p = None
 
     def calculate_transaction_fees_and_size(self, transactions: List[Transaction]) -> Tuple[int, int]:
         transactions.sort(key=attrgetter("fees"), reverse=True)

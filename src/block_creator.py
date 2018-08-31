@@ -121,7 +121,7 @@ first_block_header = BlockHeader(
     target_difficulty=0,
     nonce=2083236893,
 )
-first_block = Block(header=first_block_header, transactions=first_block_transaction)
+first_block = Block(header=first_block_header, transactions=first_block_transactions)
 
 if __name__ == "__main__":
 
@@ -141,6 +141,6 @@ if __name__ == "__main__":
     # Start the flask server and listen for future blocks and transactions.
     # Start a thread to handle the new block/transaction
 
-    # fetch_peer_list()
+    fetch_peer_list()
 
-    # app.run(host="0.0.0.0", port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
+    app.run(host="0.0.0.0", port=consts.MINER_SERVER_PORT, threaded=True, debug=True)
