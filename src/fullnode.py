@@ -247,7 +247,7 @@ def received_new_block():
                     # Remove the transactions from MemPools
                     remove_transactions_from_mempool(block)
 
-                    logger.debug("Flask: Sending new block to peers: " + str(PEER_LIST))
+                    logger.debug("Flask: Sending new block to peers")
                     # Broadcast block to other peers
                     for peer in PEER_LIST:
                         try:
