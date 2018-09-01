@@ -12,7 +12,7 @@ import copy
 sys.path.append("..")
 from core import Block, Chain, genesis_block, Transaction, SingleOutput, TxOut, TxIn
 from miner import Miner
-from utils.storage import get_block_from_db
+from utils.storage import get_block_from_db, get_wallet_from_db
 import utils.constants as consts
 from utils.utils import dhash, get_time_difference_from_now_secs
 from utils.logger import logger
@@ -277,8 +277,11 @@ def received_new_transaction():
         tx = Transaction.from_json(transaction_json).object()
         # Add transaction to Mempool
         if ACTIVE_CHAIN.is_transaction_valid(tx):
-            logger.debug("Valid Transaction received, Adding to Mempool")
-            MEMPOOL.add(tx)
+            if tx not in MEMPOOL:
+                logger.debug("Valid Transaction received, Adding to Mempool")
+                MEMPOOL.add(tx)
+            else:
+                return jsonify("Transaction Already received")
         else:
             logger.debug("The transation is not valid, not added to Mempool")
             return jsonify("Not Valid Transaction")
@@ -306,10 +309,14 @@ def user_input():
                 print("Your current balance is : " + str(current_balance))
             elif option == "2":
                 bounty = int(input("Enter Amount\n"))
-                receiver_public_key = input("Enter address of receiver\n")
-                send_bounty(bounty, receiver_public_key)
+                receiver_port = input("Enter reciever port\n")
+                send_bounty(bounty, json.loads(get_wallet_from_db(receiver_port))[1])
             elif option == "3":
                 print("No. of Blocks: ", ACTIVE_CHAIN.length)
+            elif option == "4":
+                bounty = int(input("Enter Amount\n"))
+                receiver_public_key = input("Enter address of receiver\n")
+                send_bounty(bounty, receiver_public_key)
             else:
                 print("Invalid Input. Try Again")
         except Exception as e:
