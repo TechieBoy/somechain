@@ -1,6 +1,7 @@
-from core import genesis_block_header, genesis_block
-from utils.utils import dhash
 import time
+
+from core import genesis_block, genesis_block_header
+from utils.utils import dhash
 
 
 def is_proper_difficulty(target_difficulty, bhash: str) -> bool:

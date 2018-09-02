@@ -1,9 +1,17 @@
-import pickledb
 from typing import TYPE_CHECKING
-from src.utils.utils import dhash
-from src.utils.constants import BLOCK_DB_LOC, WALLET_DB_LOC
+
+import pickledb
+
+from .constants import BLOCK_DB_LOC, WALLET_DB_LOC
+from .utils import dhash
+
 
 if TYPE_CHECKING:
+    import os
+    import sys
+
+    sys.path.append(os.path.split(sys.path[0])[0])
+
     from src.core import Block  # noqa
     from src.wallet import Wallet  # noqa
 

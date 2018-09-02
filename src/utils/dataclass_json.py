@@ -2,7 +2,7 @@ import json
 from collections.__init__ import ChainMap
 from dataclasses import asdict, fields
 
-from src.utils.dataclass_json_core import _Encoder, _decode_dataclass
+from .dataclass_json_core import _Encoder, _decode_dataclass
 
 
 class DataClassJson:

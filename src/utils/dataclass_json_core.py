@@ -1,7 +1,7 @@
 import json
+import sys
 from dataclasses import fields, is_dataclass
 from typing import Collection, Optional
-import sys
 
 
 def _get_type_origin(type_):

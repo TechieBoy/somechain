@@ -1,9 +1,14 @@
 import datetime
-from typing import List, Union, TYPE_CHECKING
 import hashlib
-import src.utils.constants as consts
+from typing import TYPE_CHECKING, List, Union
+
+from . import constants as consts
 
 if TYPE_CHECKING:
+    import os
+    import sys
+
+    sys.path.append(os.path.split(sys.path[0])[0])
     from src.core import Transaction, BlockHeader  # noqa
 
 
@@ -51,4 +56,3 @@ def dhash(s: Union[str, "Transaction", "BlockHeader"]) -> str:
         s = str(s)
     s = s.encode()
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
-

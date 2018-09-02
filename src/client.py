@@ -4,10 +4,11 @@ TODO:
     Send and receive coins
 """
 
-import secrets
 import hashlib
+import secrets
 from typing import Tuple
-from utils.secp256k1 import point_mul, b58_encode
+
+from utils.secp256k1 import b58_encode, point_mul
 
 
 class Wallet:

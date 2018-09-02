@@ -1,15 +1,15 @@
-from ecdsa import SigningKey, VerifyingKey, SECP256k1, BadDigestError, BadSignatureError
-import utils.constants as consts
-from utils.storage import get_wallet_from_db, add_wallet_to_db
-from utils.dataclass_json import DataClassJson
-from utils.logger import logger
 import json
 
+from ecdsa import BadDigestError, BadSignatureError, SECP256k1, SigningKey, VerifyingKey
+
+import utils.constants as consts
+from utils.logger import logger
+from utils.storage import add_wallet_to_db, get_wallet_from_db
 
 PORT = str(consts.MINER_SERVER_PORT)
 
 
-class Wallet():
+class Wallet:
 
     private_key: str = None
     public_key: str = None

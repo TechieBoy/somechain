@@ -1,9 +1,9 @@
-from flask import Flask, jsonify, request
 import time
-import sys
-sys.path.append("..")
-import src.utils.constants as consts
-from src.utils.logger import logger
+
+from flask import Flask, jsonify, request
+
+import utils.constants as consts
+from utils.logger import logger
 
 app = Flask(__name__)
 

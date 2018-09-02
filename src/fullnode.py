@@ -1,23 +1,20 @@
-import sys
-import requests
-import random
-from flask import Flask, jsonify, request
-import time
 import json
-from typing import Dict, Any, List, Set
+import random
+import time
 from threading import Thread, Timer
-from multiprocessing import Process
-import copy
+from typing import Any, Dict, List, Set
 
-sys.path.append("..")
-from core import Block, Chain, genesis_block, Transaction, SingleOutput, TxOut, TxIn
-from miner import Miner
-from utils.storage import get_block_from_db, get_wallet_from_db
+import requests
+from flask import Flask, jsonify, request
+
 import utils.constants as consts
-from utils.utils import dhash, get_time_difference_from_now_secs
+from core import (Block, Chain, SingleOutput, Transaction, TxIn, TxOut,
+                  genesis_block)
+from miner import Miner
 from utils.logger import logger
+from utils.storage import get_block_from_db, get_wallet_from_db
+from utils.utils import dhash, get_time_difference_from_now_secs
 from wallet import Wallet
-
 
 app = Flask(__name__)
 

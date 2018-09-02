@@ -8,21 +8,19 @@ TODO:
 
 """
 
-from sys import getsizeof, path
-from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
 import copy
-from operator import attrgetter
-
 import json
-
-path.append("..")
-from utils.dataclass_json import DataClassJson
-from utils.storage import get_block_from_db, add_block_to_db
-import utils.constants as consts
-from utils.logger import logger
+from dataclasses import dataclass, field
+from operator import attrgetter
 from statistics import median
-from utils.utils import merkle_hash, dhash, get_time_difference_from_now_secs
+from sys import getsizeof
+from typing import Any, Dict, List, Optional
+
+import utils.constants as consts
+from utils.dataclass_json import DataClassJson
+from utils.logger import logger
+from utils.storage import add_block_to_db, get_block_from_db
+from utils.utils import dhash, get_time_difference_from_now_secs, merkle_hash
 from wallet import Wallet
 
 

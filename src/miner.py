@@ -1,15 +1,17 @@
-from core import Transaction, Block, BlockHeader, Chain, TxIn, TxOut
-from sys import getsizeof
-from utils.utils import dhash, merkle_hash
-import utils.constants as consts
-from utils.logger import logger
-from typing import Set, List, Tuple, Optional
-from operator import attrgetter
-import requests
-import time
 import copy
 import sys
+import time
 from multiprocessing import Process
+from operator import attrgetter
+from sys import getsizeof
+from typing import List, Optional, Set, Tuple
+
+import requests
+
+import utils.constants as consts
+from core import Block, BlockHeader, Chain, Transaction, TxIn, TxOut
+from utils.logger import logger
+from utils.utils import dhash, merkle_hash
 
 
 class Miner:

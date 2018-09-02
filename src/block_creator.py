@@ -1,19 +1,17 @@
 import json
-import requests
 import random
-from sys import path
-from flask import Flask, jsonify, request
-from core import Transaction, Block, Chain, SingleOutput, TxIn, TxOut, BlockHeader
-from core import genesis_block, genesis_block_transaction, genesis_block_header
-from typing import Dict, List, Any, TYPE_CHECKING
+from typing import Any, Dict, List
 
-path.append("..")
+import requests
+from flask import Flask, jsonify, request
+
+from core import (Block, BlockHeader, Chain, SingleOutput, Transaction, TxIn,
+                  TxOut, genesis_block, genesis_block_header,
+                  genesis_block_transaction)
 from utils import constants as consts
-from utils.utils import merkle_hash, dhash
 from utils.logger import logger
 from utils.storage import get_block_from_db
-from wallet import Wallet
-import copy
+from utils.utils import dhash, merkle_hash
 
 app = Flask(__name__)
 

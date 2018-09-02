@@ -1,6 +1,6 @@
 import argparse
-import sys
 import logging
+import sys
 
 # LOGGING CONSTANTS
 LOG_DIRECTORY = "log/"
