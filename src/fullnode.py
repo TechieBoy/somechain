@@ -136,7 +136,7 @@ def find_fork_height(peer):
 
 
 def sync(max_peer):
-    fork_height = find_fork_height(max_peer)
+    fork_height = find_fork_height(max_peer) + 1
     r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": fork_height})
     hash_list = json.loads(r.text)
     logger.debug("Received the Following HashList from peer " + str(max_peer))
@@ -161,9 +161,8 @@ def sync_with_peers():
 
     if PEER_LIST:
         max_peer = max(PEER_LIST, key=lambda k: k["blockheight"])
-        if int(max_peer["blockheight"]) > BLOCKCHAIN.active_chain.length:
-            logger.debug(f"Sync: Syncing with {get_peer_url(max_peer)}, he seems to have height {max_peer['blockheight']}")
-            sync(max_peer)
+        logger.debug(f"Sync: Syncing with {get_peer_url(max_peer)}, he seems to have height {max_peer['blockheight']}")
+        sync(max_peer)
     Timer(consts.AVERAGE_BLOCK_MINE_INTERVAL // 2, sync_with_peers).start()
 
 
