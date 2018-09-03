@@ -22,8 +22,6 @@ WALLET_DB = None
 def load_wallet_db():
     global WALLET_DB
     if not WALLET_DB:
-        if os.path.exists(WALLET_DB_LOC):
-            os.remove(WALLET_DB_LOC)
         WALLET_DB = pickledb.load(WALLET_DB_LOC, True)
     return WALLET_DB
 
@@ -41,6 +39,10 @@ def add_wallet_to_db(port: str, wallet: str) -> bool:
 def load_block_db():
     global BLOCK_DB
     if not BLOCK_DB:
+        try:
+            os.remove(BLOCK_DB_LOC)
+        except OSError:
+            pass
         BLOCK_DB = pickledb.load(BLOCK_DB_LOC, True)
     return BLOCK_DB
 

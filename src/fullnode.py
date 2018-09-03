@@ -108,7 +108,7 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
 
 
 def check_block_with_peer(peer, hhash):
-    r = requests.post(get_peer_url(max_peer) + "/checkblock", data={"headerhash": hhash})
+    r = requests.post(get_peer_url(peer) + "/checkblock", data={"headerhash": hhash})
     result = json.loads(r.text)
     if result:
         return True
