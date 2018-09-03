@@ -106,24 +106,22 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     return Block.from_json(r.text).object()
 
 
-def sync():
-    if PEER_LIST:
-        max_peer = max(PEER_LIST, key=lambda k: k["blockheight"])
-        if max_peer["blockheight"] > BLOCKCHAIN.active_chain.length:
-            r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": BLOCKCHAIN.active_chain.length})
-            hash_list = json.loads(r.text)
-            logger.debug("Received the Following HashList from peer " + str(max_peer))
-            logger.debug(hash_list)
-            for hhash in hash_list:
-                block = receive_block_from_peer(random.choice(peer_list), hhash)
-                if not BLOCKCHAIN.add_block(block):
-                    logger.error("SYNC: Block received is invalid, Cannot Sync")
-                    raise Exception("What is going on?!")
+def sync(max_peer):
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": BLOCKCHAIN.active_chain.length})
+    hash_list = json.loads(r.text)
+    logger.debug("Received the Following HashList from peer " + str(max_peer))
+    logger.debug(hash_list)
+    for hhash in hash_list:
+        block = receive_block_from_peer(random.choice(PEER_LIST), hhash)
+        if not BLOCKCHAIN.add_block(block):
+            logger.error("SYNC: Block received is invalid, Cannot Sync")
+            raise Exception("What is going on?!")
     return
 
 
 # Periodically sync with all the peers
 def sync_with_peers():
+    logger.debug("Sync: Calling Sync")
     PEER_LIST = fetch_peer_list()
     new_peer_list = []
     for peer in PEER_LIST:
@@ -131,7 +129,11 @@ def sync_with_peers():
             new_peer_list.append(peer)
     PEER_LIST = new_peer_list
 
-    sync(PEER_LIST)
+    if PEER_LIST:
+        max_peer = max(PEER_LIST, key=lambda k: k["blockheight"])
+        if int(max_peer["blockheight"]) > BLOCKCHAIN.active_chain.length:
+            logger.debug(f"Sync: Syncing with {get_peer_url(max_peer)}, he seems to have height {max_peer['blockheight']}")
+            sync(max_peer)
     Timer(consts.AVERAGE_BLOCK_MINE_INTERVAL // 2, sync_with_peers).start()
 
 
@@ -212,7 +214,15 @@ def hello():
         peer["time"] = time.time()
         peer["version"] = request.form["version"]
         peer["blockheight"] = request.form["blockheight"]
-        PEER_LIST.append(peer)
+
+        ADD_ENTRY = True
+        for entry in PEER_LIST:
+            ip = entry["ip"]
+            port = entry["port"]
+            if ip == peer["ip"] and port == peer["port"]:
+                ADD_ENTRY = False
+        if ADD_ENTRY:
+            PEER_LIST.append(peer)
         logger.debug("Flask: Greet, A new peer joined, Adding to List")
     except Exception as e:
         logger.debug("Flask: Greet Error: " + str(e))
