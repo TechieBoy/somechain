@@ -313,7 +313,7 @@ class Chain:
     # Build the UTXO Set from scratch
     def build_utxo(self):
         for header in self.header_list:
-            block = Block.from_json(get_block_from_db(dhash(header)))
+            block = Block.from_json(get_block_from_db(dhash(header))).object()
             self.update_utxo(block)
 
     # Update the UTXO Set on adding new block, *Assuming* the block being added is valid
