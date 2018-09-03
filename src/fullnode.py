@@ -333,29 +333,26 @@ def received_new_transaction():
     global MEMPOOL
     transaction_json = str(request.form.get("transaction", None))
     if transaction_json:
-        # try:
-        tx = Transaction.from_json(transaction_json).object()
-        # Add transaction to Mempool
-        if BLOCKCHAIN.active_chain.is_transaction_valid(tx):
-            if tx not in MEMPOOL:
-                logger.debug("Valid Transaction received, Adding to Mempool")
-                MEMPOOL.add(tx)
+        try:
+            tx = Transaction.from_json(transaction_json).object()
+            # Add transaction to Mempool
+            if BLOCKCHAIN.active_chain.is_transaction_valid(tx):
+                if tx not in MEMPOOL:
+                    logger.debug("Valid Transaction received, Adding to Mempool")
+                    MEMPOOL.add(tx)
+                    # Broadcast block t other peers
+                    for peer in PEER_LIST:
+                        try:
+                            requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()})
+                        except Exception as e:
+                            logger.debug("Flask: Requests: cannot send block to peer" + get_peer_url(peer))
+                else:
+                    return jsonify("Transaction Already received")
             else:
-                return jsonify("Transaction Already received")
-        else:
-            logger.debug("The transation is not valid, not added to Mempool")
-            return jsonify("Not Valid Transaction")
-
-        # Broadcast block t other peers
-        for peer in PEER_LIST:
-            try:
-                requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()})
-            except Exception as e:
-                logger.debug("Flask: Requests: cannot send block to peer" + get_peer_url(peer))
-                pass
-        # except Exception as e:
-        #     logger.error("Flask: New Transaction: Invalid tx received: " + str(e))
-        #     pass
+                logger.debug("The transation is not valid, not added to Mempool")
+                return jsonify("Not Valid Transaction") 
+        except Exception as e:
+            logger.error("Flask: New Transaction: Invalid tx received: " + str(e))
     return jsonify("Done")
 
 
