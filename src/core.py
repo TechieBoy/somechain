@@ -535,6 +535,7 @@ class BlockChain:
                             if dhash(hh) != block.header.prev_block_hash:
                                 newhlist.append(hh)
                             else:
+                                newhlist.append(hh)
                                 break
                         nchain.header_list = newhlist
                         nchain.build_utxo()
