@@ -538,6 +538,7 @@ class BlockChain:
                                 newhlist.append(hh)
                                 break
                         nchain.header_list = newhlist
+                        nchain.length = len(nchain.header_list)
                         nchain.build_utxo()
                         nchain.add_block(block)
                         self.chains.append(nchain)
