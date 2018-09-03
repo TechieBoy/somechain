@@ -527,6 +527,7 @@ class BlockChain:
                                 break
                         nchain.header_list = newhlist
                         nchain.build_utxo()
+                        nchain.add_block(block)
                         self.chains.append(nchain)
                         self.update_active_chain()
                         added_block = True
