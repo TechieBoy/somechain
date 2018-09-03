@@ -496,14 +496,15 @@ class Chain:
 
 @dataclass
 class BlockChain:
-    chains: List[Chain] = field(default_factory=list, init=False)
+    chains: List[Chain] = field(default_factory=list)
 
-    active_chain_candidates: List[Chain]
+    active_chain_candidates: List[Chain] = field(default_factory=list)
 
     def update_active_chain(self):
         sorted_chains = sorted(self.chains, key=attrgetter("length"), reverse=True)
         max_length = sorted_chains[0].length
         self.active_chain_candidates = [c for c in sorted_chains if c.length == max_length]
+        logger.debug(f"Now {len(self.active_chain_candidates)} candidates for the active chain")
 
     def add_block(self, block: Block):
         added_block = False
@@ -530,6 +531,7 @@ class BlockChain:
                         nchain.add_block(block)
                         self.chains.append(nchain)
                         self.update_active_chain()
+                        logger.debug("There was a soft fork and a new chain was created with length {nchain.length}")
                         added_block = True
                         break
                 if added_block:
