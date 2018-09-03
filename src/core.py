@@ -520,7 +520,11 @@ class BlockChain:
             for chain in self.chains:
                 hlist = chain.header_list
                 for h in reversed(hlist):
-                    if dhash(h) == block.header.prev_block_hash:
+                    # Return is same block is received
+                    if dhash(h) == dhash(block.header):
+                        return False
+                    # Else check if block can be added for current header
+                    elif dhash(h) == block.header.prev_block_hash:
                         nchain = copy.deepcopy(chain)
                         newhlist = []
                         for hh in hlist:
@@ -533,7 +537,7 @@ class BlockChain:
                         nchain.add_block(block)
                         self.chains.append(nchain)
                         self.update_active_chain()
-                        logger.debug("There was a soft fork and a new chain was created with length {nchain.length}")
+                        logger.debug(f"There was a soft fork and a new chain was created with length {nchain.length}")
                         added_block = True
                         break
                 if added_block:

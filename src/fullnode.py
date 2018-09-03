@@ -8,8 +8,7 @@ import requests
 from flask import Flask, jsonify, request
 
 import utils.constants as consts
-from core import (Block, BlockChain, Chain, SingleOutput, Transaction, TxIn,
-                  TxOut, genesis_block)
+from core import Block, BlockChain, Chain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
 from miner import Miner
 from utils.logger import logger
 from utils.storage import get_block_from_db, get_wallet_from_db
@@ -107,20 +106,33 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     return Block.from_json(r.text).object()
 
 
-def sync(peer_list):
-    if peer_list:
-        max_peer = max(peer_list, key=lambda k: k["blockheight"])
-        logger.debug(get_peer_url(max_peer))
-        r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": BLOCKCHAIN.active_chain.length})
-        hash_list = json.loads(r.text)
-        logger.debug("Received the Following HashList from peer " + str(max_peer))
-        logger.debug(hash_list)
-        for hhash in hash_list:
-            block = receive_block_from_peer(random.choice(peer_list), hhash)
-            if not BLOCKCHAIN.add_block(block):
-                logger.error("SYNC: Block received is invalid, Cannot Sync")
-                raise Exception("What is going on?!")
+def sync():
+    if PEER_LIST:
+        max_peer = max(PEER_LIST, key=lambda k: k["blockheight"])
+        if max_peer["blockheight"] > BLOCKCHAIN.active_chain.length:
+            r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": BLOCKCHAIN.active_chain.length})
+            hash_list = json.loads(r.text)
+            logger.debug("Received the Following HashList from peer " + str(max_peer))
+            logger.debug(hash_list)
+            for hhash in hash_list:
+                block = receive_block_from_peer(random.choice(peer_list), hhash)
+                if not BLOCKCHAIN.add_block(block):
+                    logger.error("SYNC: Block received is invalid, Cannot Sync")
+                    raise Exception("What is going on?!")
     return
+
+
+# Periodically sync with all the peers
+def sync_with_peers():
+    PEER_LIST = fetch_peer_list()
+    new_peer_list = []
+    for peer in PEER_LIST:
+        if greet_peer(peer):
+            new_peer_list.append(peer)
+    PEER_LIST = new_peer_list
+
+    sync(PEER_LIST)
+    Timer(consts.AVERAGE_BLOCK_MINE_INTERVAL // 2, sync_with_peers).start()
 
 
 def display_wallet():
@@ -319,21 +331,15 @@ def user_input():
 if __name__ == "__main__":
     try:
         BLOCKCHAIN.add_block(genesis_block)
+        
+        # Sync with all my peers
+        sync_with_peers()
 
-        PEER_LIST = fetch_peer_list()
-        new_peer_list = []
-        for peer in PEER_LIST:
-            if greet_peer(peer):
-                new_peer_list.append(peer)
+        # Start the User Interface Thread
+        Thread(target=user_input, name="UserInterface", daemon=True).start()
 
-        PEER_LIST = new_peer_list
-        sync(PEER_LIST)
-
-        t = Thread(target=user_input, name="UserInterface", daemon=True)
-        t.start()
-
-        t = Thread(target=start_mining_thread, daemon=True)
-        t.start()
+        # Start the Mining Thread
+        Thread(target=start_mining_thread, daemon=True).start()
 
         # Start Flask Server
         logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
