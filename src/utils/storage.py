@@ -51,3 +51,8 @@ def get_block_from_db(header_hash: str) -> str:
 def add_block_to_db(block: "Block") -> bool:
     db = load_block_db()
     return db.set(dhash(block.header), block.to_json())
+
+
+def check_block_in_db(header_hash: str) -> bool:
+    db = load_block_db()
+    return db.exists(header_hash)

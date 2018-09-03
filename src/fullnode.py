@@ -2,6 +2,7 @@ import json
 import random
 import time
 from threading import Thread, Timer
+from multiprocessing import Pool
 from typing import Any, Dict, List, Set
 
 import requests
@@ -11,7 +12,7 @@ import utils.constants as consts
 from core import Block, BlockChain, Chain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
 from miner import Miner
 from utils.logger import logger
-from utils.storage import get_block_from_db, get_wallet_from_db
+from utils.storage import get_block_from_db, get_wallet_from_db, check_block_in_db
 from utils.utils import dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
@@ -106,8 +107,37 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     return Block.from_json(r.text).object()
 
 
+def check_block_with_peer(peer, hhash):
+    r = requests.post(get_peer_url(max_peer) + "/checkblock", data={"headerhash": hhash})
+    result = json.loads(r.text)
+    if result:
+        return True
+    return False
+
+
+def get_block_header_hash(height):
+    return dhash(BLOCKCHAIN.active_chain.header_list[height])
+
+
+def find_fork_height(peer):
+    fork_height = BLOCKCHAIN.active_chain.length - 1
+    if check_block_with_peer(peer, get_block_header_hash(fork_height)):
+        return fork_height
+    else:
+        left = 0
+        right = BLOCKCHAIN.active_chain.length - 1
+        while left < right:
+            mid = (left + right) // 2
+            if check_block_with_peer(peer, get_block_header_hash(mid)):
+                left = fork_height
+            else:
+                right = fork_height + 1
+        return left
+
+
 def sync(max_peer):
-    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": BLOCKCHAIN.active_chain.length})
+    fork_height = find_fork_height(max_peer)
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": fork_height})
     hash_list = json.loads(r.text)
     logger.debug("Received the Following HashList from peer " + str(max_peer))
     logger.debug(hash_list)
@@ -240,6 +270,17 @@ def getblock():
     return "Hash hi nahi bheja LOL"
 
 
+@app.route("/checkblock", methods=["POST"])
+def checkblock():
+    hhash = request.form.get("headerhash")
+    if hhash:
+        with Pool(4) as p:
+            hash_list = set(p.map(dhash, BLOCKCHAIN.active_chain.header_list))
+            if hhash in hash_list:
+                return jsonify(True)
+    return jsonify(False)
+
+
 @app.route("/getblockhashes", methods=["POST"])
 def send_block_hashes():
     peer_height = int(request.form.get("myheight"))
@@ -341,7 +382,7 @@ def user_input():
 if __name__ == "__main__":
     try:
         BLOCKCHAIN.add_block(genesis_block)
-        
+
         # Sync with all my peers
         sync_with_peers()
 
