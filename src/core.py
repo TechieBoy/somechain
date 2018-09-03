@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
-from utils.storage import add_block_to_db, get_block_from_db
+from utils.storage import add_block_to_db, get_block_from_db, check_block_in_db
 from utils.utils import dhash, get_time_difference_from_now_secs, merkle_hash
 from wallet import Wallet
 
@@ -506,6 +506,10 @@ class BlockChain:
         self.active_chain = max(self.chains, key=attrgetter("length"))
 
     def add_block(self, block: Block):
+        if check_block_in_db(dhash(block.header)):
+            logger.debug("Chain: AddBlock: Block already exists")
+            return False
+
         added_block = False
         for chain in self.chains:
             if chain.length == 0:
@@ -520,11 +524,8 @@ class BlockChain:
             for chain in self.chains:
                 hlist = chain.header_list
                 for h in reversed(hlist):
-                    # Return is same block is received
-                    if dhash(h) == dhash(block.header):
-                        return False
-                    # Else check if block can be added for current header
-                    elif dhash(h) == block.header.prev_block_hash:
+                    # Check if block can be added for current header
+                    if dhash(h) == block.header.prev_block_hash:
                         nchain = copy.deepcopy(chain)
                         newhlist = []
                         for hh in hlist:

@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 import pickledb
+import os
 
 from .constants import BLOCK_DB_LOC, WALLET_DB_LOC
 from .utils import dhash
@@ -22,6 +23,8 @@ WALLET_DB = None
 def load_wallet_db():
     global WALLET_DB
     if not WALLET_DB:
+        if os.path.exists(WALLET_DB_LOC):
+            os.remove(WALLET_DB_LOC)
         WALLET_DB = pickledb.load(WALLET_DB_LOC, True)
     return WALLET_DB
 
