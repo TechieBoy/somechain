@@ -15,12 +15,13 @@ from operator import attrgetter
 from statistics import median
 from sys import getsizeof
 from typing import Any, Dict, List, Optional
+from threading import RLock
 
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
 from utils.storage import add_block_to_db, get_block_from_db, check_block_in_db
-from utils.utils import dhash, get_time_difference_from_now_secs, merkle_hash
+from utils.utils import dhash, get_time_difference_from_now_secs, merkle_hash, lock
 from wallet import Wallet
 
 
@@ -494,17 +495,19 @@ class Chain:
         return 0
 
 
-@dataclass
 class BlockChain:
+
+    block_lock = RLock()
+
     def __init__(self):
         self.active_chain: Chain = Chain()
-
         self.chains: List[Chain] = []
         self.chains.append(self.active_chain)
 
     def update_active_chain(self):
         self.active_chain = max(self.chains, key=attrgetter("length"))
 
+    @lock(block_lock)
     def add_block(self, block: Block):
         if check_block_in_db(dhash(block.header)):
             logger.debug("Chain: AddBlock: Block already exists")

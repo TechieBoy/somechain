@@ -400,7 +400,7 @@ if __name__ == "__main__":
 
         # Start Flask Server
         logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
-        app.run(port=consts.MINER_SERVER_PORT, threaded=False, host="0.0.0.0")
+        app.run(port=consts.MINER_SERVER_PORT, threaded=True, host="0.0.0.0")
 
     except KeyboardInterrupt:
         miner.stop_mining()
