@@ -370,7 +370,10 @@ def user_input():
                 send_bounty(bounty, json.loads(get_wallet_from_db(receiver_port))[1])
             elif option == "3":
                 print("No. of Blocks: ", BLOCKCHAIN.active_chain.length)
+                print("ACTIVE chain last Header: ". dhash(BLOCKCHAIN.active_chain.header_list[-1]))
             elif option == "4":
+                print("No. of Chains: ", len(BLOCKCHAIN.chains))
+            elif option == "0":
                 bounty = int(input("Enter Amount\n"))
                 receiver_public_key = input("Enter address of receiver\n")
                 send_bounty(bounty, receiver_public_key)
