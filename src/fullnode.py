@@ -136,7 +136,7 @@ def find_fork_height(peer):
 
 
 def sync(max_peer):
-    fork_height = find_fork_height(max_peer) + 1
+    fork_height = find_fork_height(max_peer)
     r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": fork_height})
     hash_list = json.loads(r.text)
     logger.debug("Received the Following HashList from peer " + str(max_peer))
@@ -144,25 +144,27 @@ def sync(max_peer):
     for hhash in hash_list:
         block = receive_block_from_peer(max_peer, hhash)
         if not BLOCKCHAIN.add_block(block):
-            logger.error("SYNC: Block received is invalid, Cannot Sync")
-            raise Exception("What is going on?!")
+            logger.error("Sync: Block received is invalid, Cannot Sync")
     return
 
 
 # Periodically sync with all the peers
 def sync_with_peers():
-    logger.debug("Sync: Calling Sync")
-    PEER_LIST = fetch_peer_list()
-    new_peer_list = []
-    for peer in PEER_LIST:
-        if greet_peer(peer):
-            new_peer_list.append(peer)
-    PEER_LIST = new_peer_list
+    try:
+        logger.debug("Sync: Calling Sync")
+        PEER_LIST = fetch_peer_list()
+        new_peer_list = []
+        for peer in PEER_LIST:
+            if greet_peer(peer):
+                new_peer_list.append(peer)
+        PEER_LIST = new_peer_list
 
-    if PEER_LIST:
-        max_peer = max(PEER_LIST, key=lambda k: k["blockheight"])
-        logger.debug(f"Sync: Syncing with {get_peer_url(max_peer)}, he seems to have height {max_peer['blockheight']}")
-        sync(max_peer)
+        if PEER_LIST:
+            max_peer = max(PEER_LIST, key=lambda k: k["blockheight"])
+            logger.debug(f"Sync: Syncing with {get_peer_url(max_peer)}, he seems to have height {max_peer['blockheight']}")
+            sync(max_peer)
+    except Exception as e:
+        logger.error("Sync: Error: " + str(e))
     Timer(consts.AVERAGE_BLOCK_MINE_INTERVAL // 2, sync_with_peers).start()
 
 
