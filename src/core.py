@@ -496,20 +496,22 @@ class Chain:
 
 @dataclass
 class BlockChain:
-    chains: List[Chain] = field(default_factory=list)
+    def __init__(self):
+        self.active_chain: Chain = Chain()
 
-    active_chain_candidates: List[Chain] = field(default_factory=list)
+        self.chains: List[Chain] = []
+        self.chains.append(self.active_chain)
 
     def update_active_chain(self):
-        sorted_chains = sorted(self.chains, key=attrgetter("length"), reverse=True)
-        max_length = sorted_chains[0].length
-        self.active_chain_candidates = [c for c in sorted_chains if c.length == max_length]
-        logger.debug(f"Now {len(self.active_chain_candidates)} candidates for the active chain")
+        self.active_chain = max(self.chains, key=attrgetter("length"))
 
     def add_block(self, block: Block):
         added_block = False
         for chain in self.chains:
-            if block.header.prev_block_hash == dhash(chain.header_list[-1]):
+            if chain.length == 0:
+                if chain.add_block(block):
+                    added_block = True
+            elif block.header.prev_block_hash == dhash(chain.header_list[-1]):
                 if chain.add_block(block):
                     self.update_active_chain()
                     added_block = True
