@@ -77,6 +77,7 @@ def fetch_peer_list() -> List[Dict[str, Any]]:
         peer_list = json.loads(r.text)
         return peer_list
     except Exception as e:
+        logger.error("Could not connect to DNS Seed")
         return []
 
 
@@ -131,9 +132,9 @@ def find_fork_height(peer):
         while left < right:
             mid = (left + right) // 2
             if check_block_with_peer(peer, get_block_header_hash(mid)):
-                left = fork_height
+                left = mid + 1
             else:
-                right = fork_height + 1
+                right = mid
         return left
 
 
