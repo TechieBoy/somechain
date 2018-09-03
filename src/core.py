@@ -508,7 +508,7 @@ class BlockChain:
     def add_block(self, block: Block):
         if check_block_in_db(dhash(block.header)):
             logger.debug("Chain: AddBlock: Block already exists")
-            return True
+            return False
 
         added_block = False
         for chain in self.chains:
