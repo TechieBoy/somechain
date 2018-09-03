@@ -1,11 +1,10 @@
+import os
 from typing import TYPE_CHECKING
 
 import pickledb
-import os
 
 from .constants import BLOCK_DB_LOC, WALLET_DB_LOC
 from .utils import dhash
-
 
 if TYPE_CHECKING:
     import os
@@ -58,4 +57,6 @@ def add_block_to_db(block: "Block") -> bool:
 
 def check_block_in_db(header_hash: str) -> bool:
     db = load_block_db()
-    return db.exists(header_hash)
+    if db.get(header_hash):
+        return True
+    return False
