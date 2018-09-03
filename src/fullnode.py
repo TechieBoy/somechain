@@ -112,7 +112,7 @@ def sync(max_peer):
     logger.debug("Received the Following HashList from peer " + str(max_peer))
     logger.debug(hash_list)
     for hhash in hash_list:
-        block = receive_block_from_peer(random.choice(PEER_LIST), hhash)
+        block = receive_block_from_peer(max_peer, hhash)
         if not BLOCKCHAIN.add_block(block):
             logger.error("SYNC: Block received is invalid, Cannot Sync")
             raise Exception("What is going on?!")
