@@ -1,18 +1,20 @@
 import json
 import random
 import time
-from threading import Thread, Timer
 from multiprocessing import Pool
+from threading import Thread, Timer
 from typing import Any, Dict, List, Set
 
 import requests
 from flask import Flask, jsonify, request
 
 import utils.constants as consts
-from core import Block, BlockChain, Chain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
+from core import (Block, BlockChain, Chain, SingleOutput, Transaction, TxIn,
+                  TxOut, genesis_block)
 from miner import Miner
 from utils.logger import logger
-from utils.storage import get_block_from_db, get_wallet_from_db, check_block_in_db
+from utils.storage import (check_block_in_db, get_block_from_db,
+                           get_wallet_from_db)
 from utils.utils import dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
@@ -370,7 +372,7 @@ def user_input():
                 send_bounty(bounty, json.loads(get_wallet_from_db(receiver_port))[1])
             elif option == "3":
                 print("No. of Blocks: ", BLOCKCHAIN.active_chain.length)
-                print("ACTIVE chain last Header: ". dhash(BLOCKCHAIN.active_chain.header_list[-1]))
+                print("ACTIVE chain last Header: ", dhash(BLOCKCHAIN.active_chain.header_list[-1]))
             elif option == "4":
                 print("No. of Chains: ", len(BLOCKCHAIN.chains))
             elif option == "0":
@@ -398,7 +400,7 @@ if __name__ == "__main__":
 
         # Start Flask Server
         logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
-        app.run(port=consts.MINER_SERVER_PORT, threaded=True, host="0.0.0.0")
+        app.run(port=consts.MINER_SERVER_PORT, threaded=False, host="0.0.0.0")
 
     except KeyboardInterrupt:
         miner.stop_mining()
