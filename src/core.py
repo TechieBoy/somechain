@@ -529,7 +529,7 @@ class BlockChain:
                 for h in reversed(hlist):
                     # Check if block can be added for current header
                     if dhash(h) == block.header.prev_block_hash:
-                        nchain = copy.deepcopy(chain)
+                        nchain = Chain()
                         newhlist = []
                         for hh in hlist:
                             if dhash(hh) != block.header.prev_block_hash:

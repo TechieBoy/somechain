@@ -32,7 +32,7 @@ REWARD_UPDATE_INTERVAL = 20_000
 # A block cannot have timestamp greater than this time in the future
 BLOCK_MAX_TIME_FUTURE_SECS = 2 * 60 * 60
 
-INITIAL_BLOCK_DIFFICULTY = 5
+INITIAL_BLOCK_DIFFICULTY = 4
 
 BLOCK_DIFFICULTY_UPDATE_INTERVAL = 40  # number of blocks
 AVERAGE_BLOCK_MINE_INTERVAL = 50  # seconds
