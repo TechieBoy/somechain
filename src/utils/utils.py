@@ -56,3 +56,14 @@ def dhash(s: Union[str, "Transaction", "BlockHeader"]) -> str:
         s = str(s)
     s = s.encode()
     return hashlib.sha256(hashlib.sha256(s).digest()).hexdigest()
+
+
+def lock(lock):
+    def decorator(f):
+
+        def call(*args, **argd):
+            with lock:
+                return f(*args, **argd)
+        return call
+
+    return decorator

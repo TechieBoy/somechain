@@ -1,6 +1,7 @@
 import json
 import random
 import time
+from multiprocessing import Pool
 from threading import Thread, Timer
 from typing import Any, Dict, List, Set
 
@@ -11,16 +12,14 @@ import utils.constants as consts
 from core import Block, SingleOutput, Transaction, TxIn, TxOut, genesis_block
 from miner import Miner
 from utils.logger import logger
-from utils.storage import get_block_from_db, get_wallet_from_db
+from utils.storage import (check_block_in_db, get_block_from_db,
+                           get_wallet_from_db)
 from utils.utils import dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
 app = Flask(__name__)
 
-# TODO: Guarantee that ACTIVE_CHAIN is max length chain
-ACTIVE_CHAIN = Chain()
-
-BLOCKCHAIN: List[Chain] = [ACTIVE_CHAIN]
+BLOCKCHAIN = BlockChain()
 
 PEER_LIST: List[Dict[str, Any]] = []
 
@@ -36,13 +35,13 @@ def mining_thread_task():
         if not miner.is_mining():
             mlist = list(MEMPOOL)
             fees, size = miner.calculate_transaction_fees_and_size(mlist)
-            time_diff = -get_time_difference_from_now_secs(ACTIVE_CHAIN.header_list[-1].timestamp)
+            time_diff = -get_time_difference_from_now_secs(BLOCKCHAIN.active_chain.header_list[-1].timestamp)
             if (
                 fees >= 1000
                 or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6)
                 or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
             ):
-                miner.start_mining(MEMPOOL, ACTIVE_CHAIN, MY_WALLET.public_key)
+                miner.start_mining(MEMPOOL, BLOCKCHAIN.active_chain, MY_WALLET.public_key)
         time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
 
 
@@ -77,6 +76,7 @@ def fetch_peer_list() -> List[Dict[str, Any]]:
         peer_list = json.loads(r.text)
         return peer_list
     except Exception as e:
+        logger.error("Could not connect to DNS Seed")
         return []
 
 
@@ -87,7 +87,7 @@ def get_peer_url(peer: Dict[str, Any]) -> str:
 def greet_peer(peer: Dict[str, Any]) -> bool:
     try:
         url = get_peer_url(peer)
-        data = {"port": consts.MINER_SERVER_PORT, "version": consts.MINER_VERSION, "blockheight": ACTIVE_CHAIN.length}
+        data = {"port": consts.MINER_SERVER_PORT, "version": consts.MINER_VERSION, "blockheight": BLOCKCHAIN.active_chain.length}
         # Send a POST request to the peer
         r = requests.post(url + "/", data=data)
         data = json.loads(r.text)
@@ -109,20 +109,65 @@ def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     return Block.from_json(r.text).object()
 
 
-def sync(peer_list):
-    if peer_list:
-        max_peer = max(peer_list, key=lambda k: k["blockheight"])
-        logger.debug(get_peer_url(max_peer))
-        r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": ACTIVE_CHAIN.length})
-        hash_list = json.loads(r.text)
-        logger.debug("Received the Following HashList from peer " + str(max_peer))
-        logger.debug(hash_list)
-        for hhash in hash_list:
-            block = receive_block_from_peer(random.choice(peer_list), hhash)
-            if not ACTIVE_CHAIN.add_block(block):
-                logger.error("SYNC: Block received is invalid, Cannot Sync")
-                raise Exception("WTF")
+def check_block_with_peer(peer, hhash):
+    r = requests.post(get_peer_url(peer) + "/checkblock", data={"headerhash": hhash})
+    result = json.loads(r.text)
+    if result:
+        return True
+    return False
+
+
+def get_block_header_hash(height):
+    return dhash(BLOCKCHAIN.active_chain.header_list[height])
+
+
+def find_fork_height(peer):
+    fork_height = BLOCKCHAIN.active_chain.length - 1
+    if check_block_with_peer(peer, get_block_header_hash(fork_height)):
+        return fork_height
+    else:
+        left = 0
+        right = BLOCKCHAIN.active_chain.length - 1
+        while left < right:
+            mid = (left + right) // 2
+            if check_block_with_peer(peer, get_block_header_hash(mid)):
+                left = mid + 1
+            else:
+                right = mid
+        return left
+
+
+def sync(max_peer):
+    fork_height = find_fork_height(max_peer)
+    r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": fork_height})
+    hash_list = json.loads(r.text)
+    logger.debug("Received the Following HashList from peer " + str(max_peer))
+    logger.debug(hash_list)
+    for hhash in hash_list:
+        block = receive_block_from_peer(max_peer, hhash)
+        if not BLOCKCHAIN.add_block(block):
+            logger.error("Sync: Block received is invalid, Cannot Sync")
     return
+
+
+# Periodically sync with all the peers
+def sync_with_peers():
+    try:
+        logger.debug("Sync: Calling Sync")
+        PEER_LIST = fetch_peer_list()
+        new_peer_list = []
+        for peer in PEER_LIST:
+            if greet_peer(peer):
+                new_peer_list.append(peer)
+        PEER_LIST = new_peer_list
+
+        if PEER_LIST:
+            max_peer = max(PEER_LIST, key=lambda k: k["blockheight"])
+            logger.debug(f"Sync: Syncing with {get_peer_url(max_peer)}, he seems to have height {max_peer['blockheight']}")
+            sync(max_peer)
+    except Exception as e:
+        logger.error("Sync: Error: " + str(e))
+    Timer(consts.AVERAGE_BLOCK_MINE_INTERVAL // 2, sync_with_peers).start()
 
 
 def display_wallet():
@@ -133,7 +178,7 @@ def display_wallet():
 def check_balance():
     display_wallet()
     current_balance = 0
-    for x, utxo_list in ACTIVE_CHAIN.utxo.utxo.items():
+    for x, utxo_list in BLOCKCHAIN.active_chain.utxo.utxo.items():
         tx_out = utxo_list[0]
         if tx_out.address == MY_WALLET.public_key:
             current_balance += int(tx_out.amount)
@@ -174,11 +219,11 @@ def send_bounty(bounty: int, receiver_public_key: str):
 def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: int):
     current_amount = 0
     i = 0
-    for so, utxo_list in ACTIVE_CHAIN.utxo.utxo.items():
+    for so, utxo_list in BLOCKCHAIN.active_chain.utxo.utxo.items():
         tx_out = utxo_list[0]
         if utxo_list[2]:
             # check for coinbase TxIn Maturity
-            if not ACTIVE_CHAIN.length - utxo_list[1].height > consts.COINBASE_MATURITY:
+            if not BLOCKCHAIN.active_chain.length - utxo_list[1].height > consts.COINBASE_MATURITY:
                 continue
         if current_amount > bounty:
             break
@@ -202,13 +247,21 @@ def hello():
         peer["time"] = time.time()
         peer["version"] = request.form["version"]
         peer["blockheight"] = request.form["blockheight"]
-        PEER_LIST.append(peer)
+
+        ADD_ENTRY = True
+        for entry in PEER_LIST:
+            ip = entry["ip"]
+            port = entry["port"]
+            if ip == peer["ip"] and port == peer["port"]:
+                ADD_ENTRY = False
+        if ADD_ENTRY:
+            PEER_LIST.append(peer)
         logger.debug("Flask: Greet, A new peer joined, Adding to List")
     except Exception as e:
         logger.debug("Flask: Greet Error: " + str(e))
         pass
 
-    data = {"version": consts.MINER_VERSION, "blockheight": ACTIVE_CHAIN.length}
+    data = {"version": consts.MINER_VERSION, "blockheight": BLOCKCHAIN.active_chain.length}
     return jsonify(data)
 
 
@@ -220,12 +273,23 @@ def getblock():
     return "Hash hi nahi bheja LOL"
 
 
+@app.route("/checkblock", methods=["POST"])
+def checkblock():
+    hhash = request.form.get("headerhash")
+    if hhash:
+        with Pool(4) as p:
+            hash_list = set(p.map(dhash, BLOCKCHAIN.active_chain.header_list))
+            if hhash in hash_list:
+                return jsonify(True)
+    return jsonify(False)
+
+
 @app.route("/getblockhashes", methods=["POST"])
 def send_block_hashes():
     peer_height = int(request.form.get("myheight"))
     hash_list = []
-    for i in range(peer_height, ACTIVE_CHAIN.length):
-        hash_list.append(dhash(ACTIVE_CHAIN.header_list[i]))
+    for i in range(peer_height, BLOCKCHAIN.active_chain.length):
+        hash_list.append(dhash(BLOCKCHAIN.active_chain.header_list[i]))
     logger.debug("Flask: Sending Peer this Block Hash List: " + str(hash_list))
     return jsonify(hash_list)
 
@@ -237,20 +301,18 @@ def received_new_block():
     if block_json:
         try:
             block = Block.from_json(block_json).object()
-            for ch in BLOCKCHAIN:
-                if ch.add_block(block):
-                    logger.info("Flask: Received a New Valid Block, Adding to Chain")
-                    # Remove the transactions from MemPools
-                    remove_transactions_from_mempool(block)
+            if BLOCKCHAIN.add_block(block):
+                logger.info("Flask: Received a New Valid Block, Adding to Chain")
+                # Remove the transactions from MemPools
+                remove_transactions_from_mempool(block)
 
-                    logger.debug("Flask: Sending new block to peers")
-                    # Broadcast block to other peers
-                    for peer in PEER_LIST:
-                        try:
-                            requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})
-                        except Exception as e:
-                            logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
-                    break
+                logger.debug("Flask: Sending new block to peers")
+                # Broadcast block to other peers
+                for peer in PEER_LIST:
+                    try:
+                        requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})
+                    except Exception as e:
+                        logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
             # TODO Make new chain/ orphan set for Block that is not added
         except Exception as e:
             logger.error("Flask: New Block: invalid block received " + str(e))
@@ -264,34 +326,32 @@ def received_new_block():
     return "Invalid Block"
 
 
+# Transactions for all active chains
 @app.route("/newtransaction", methods=["POST"])
 def received_new_transaction():
     global MEMPOOL
     transaction_json = str(request.form.get("transaction", None))
     if transaction_json:
-        # try:
-        tx = Transaction.from_json(transaction_json).object()
-        # Add transaction to Mempool
-        if ACTIVE_CHAIN.is_transaction_valid(tx):
-            if tx not in MEMPOOL:
-                logger.debug("Valid Transaction received, Adding to Mempool")
-                MEMPOOL.add(tx)
+        try:
+            tx = Transaction.from_json(transaction_json).object()
+            # Add transaction to Mempool
+            if BLOCKCHAIN.active_chain.is_transaction_valid(tx):
+                if tx not in MEMPOOL:
+                    logger.debug("Valid Transaction received, Adding to Mempool")
+                    MEMPOOL.add(tx)
+                    # Broadcast block t other peers
+                    for peer in PEER_LIST:
+                        try:
+                            requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()})
+                        except Exception as e:
+                            logger.debug("Flask: Requests: cannot send block to peer" + get_peer_url(peer))
+                else:
+                    return jsonify("Transaction Already received")
             else:
-                return jsonify("Transaction Already received")
-        else:
-            logger.debug("The transation is not valid, not added to Mempool")
-            return jsonify("Not Valid Transaction")
-
-        # Broadcast block t other peers
-        for peer in PEER_LIST:
-            try:
-                requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()})
-            except Exception as e:
-                logger.debug("Flask: Requests: cannot send block to peer" + get_peer_url(peer))
-                pass
-        # except Exception as e:
-        #     logger.error("Flask: New Transaction: Invalid tx received: " + str(e))
-        #     pass
+                logger.debug("The transation is not valid, not added to Mempool")
+                return jsonify("Not Valid Transaction") 
+        except Exception as e:
+            logger.error("Flask: New Transaction: Invalid tx received: " + str(e))
     return jsonify("Done")
 
 
@@ -356,16 +416,13 @@ def checkblance():
 
 if __name__ == "__main__":
     try:
-        ACTIVE_CHAIN.add_block(genesis_block)
+        BLOCKCHAIN.add_block(genesis_block)
 
-        PEER_LIST = fetch_peer_list()
-        new_peer_list = []
-        for peer in PEER_LIST:
-            if greet_peer(peer):
-                new_peer_list.append(peer)
+        # Sync with all my peers
+        sync_with_peers()
 
-        PEER_LIST = new_peer_list
-        sync(PEER_LIST)
+        # Start the User Interface Thread
+        Thread(target=user_input, name="UserInterface", daemon=True).start()
 
         #t = Thread(target=user_input, name="UserInterface", daemon=True)
         #t.start()

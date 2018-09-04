@@ -1,10 +1,10 @@
+import os
 from typing import TYPE_CHECKING
 
 import pickledb
 
 from .constants import BLOCK_DB_LOC, WALLET_DB_LOC
 from .utils import dhash
-
 
 if TYPE_CHECKING:
     import os
@@ -39,6 +39,10 @@ def add_wallet_to_db(port: str, wallet: str) -> bool:
 def load_block_db():
     global BLOCK_DB
     if not BLOCK_DB:
+        try:
+            os.remove(BLOCK_DB_LOC)
+        except OSError:
+            pass
         BLOCK_DB = pickledb.load(BLOCK_DB_LOC, True)
     return BLOCK_DB
 
@@ -51,3 +55,10 @@ def get_block_from_db(header_hash: str) -> str:
 def add_block_to_db(block: "Block") -> bool:
     db = load_block_db()
     return db.set(dhash(block.header), block.to_json())
+
+
+def check_block_in_db(header_hash: str) -> bool:
+    db = load_block_db()
+    if db.get(header_hash):
+        return True
+    return False
