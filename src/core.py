@@ -21,8 +21,7 @@ import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
 from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db
-from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
-                         merkle_hash)
+from utils.utils import dhash, get_time_difference_from_now_secs, lock, merkle_hash
 from wallet import Wallet
 
 
@@ -478,14 +477,13 @@ class Chain:
         length = len(self.header_list)
         if length > 0 and length % dui == 0:
             time_elapsed = self.header_list[-1].timestamp - self.header_list[-dui].timestamp
-            num_of_blocks = dui if length > dui else length
-            if time_elapsed / num_of_blocks < consts.AVERAGE_BLOCK_MINE_INTERVAL:
-                if self.target_difficulty < consts.MAXIMUM_TARGET_DIFFICULTY:
-                    self.target_difficulty += 1
-                    logger.info("Updating Block Difficulty to " + str(self.target_difficulty))
+            self.target_difficulty *= (consts.AVERAGE_BLOCK_MINE_INTERVAL * dui) // time_elapsed
+            if self.target_difficulty < 1:
+                self.target_difficulty = 1
 
     def is_proper_difficulty(self, bhash: str) -> bool:
-        return bhash[: self.target_difficulty] == "0" * self.target_difficulty
+        target_difficulty = int(consts.MAXIMUM_TARGET_DIFFICULTY, 16) // self.target_difficulty
+        return int(bhash, 16) < target_difficulty
 
     def current_block_reward(self) -> int:
         """Returns the current block reward

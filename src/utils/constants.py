@@ -34,12 +34,12 @@ BLOCK_MAX_TIME_FUTURE_SECS = 2 * 60 * 60
 
 INITIAL_BLOCK_DIFFICULTY = 4
 
-BLOCK_DIFFICULTY_UPDATE_INTERVAL = 7  # number of blocks
+BLOCK_DIFFICULTY_UPDATE_INTERVAL = 5  # number of blocks
 AVERAGE_BLOCK_MINE_INTERVAL = 30  # seconds
-MAXIMUM_TARGET_DIFFICULTY = 255
+MAXIMUM_TARGET_DIFFICULTY = "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
 # Cheat Code
-BLOCK_MINING_SPEEDUP = 10
+BLOCK_MINING_SPEEDUP = 3
 
 # Define Values from arguments passed
 parser = argparse.ArgumentParser()
