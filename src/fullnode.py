@@ -351,6 +351,9 @@ def send():
                     message = "Your satoshis are sent !!!"
                     send_bounty(amt, publickey)
                     return render_template("send.html", message=message)
+                else:
+                    message = "You have insufficient balance !!!"
+                    return render_template("send.html", message=message) 
             else:
                 message = "Check your inputs"
                 return render_template("send.html", message=message)
