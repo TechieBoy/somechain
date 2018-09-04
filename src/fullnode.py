@@ -295,6 +295,10 @@ def received_new_block():
     if block_json:
         try:
             block = Block.from_json(block_json).object()
+            # Check if block already exists
+            if get_block_from_db(dhash(block.header)):
+                logger.info("Flask: Received block exists, doing nothing")
+                return "Block already Received Before"
             if BLOCKCHAIN.add_block(block):
                 logger.info("Flask: Received a New Valid Block, Adding to Chain")
                 # Remove the transactions from MemPools
