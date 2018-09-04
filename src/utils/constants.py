@@ -24,9 +24,9 @@ MINER_VERSION = "0.1"
 HASH_LENGTH_HEX = 64  # 256 bit string is 64 hexa_dec string
 
 MAX_BLOCK_SIZE_KB = 4096
-MAX_SATOSHIS_POSSIBLE = 21_000_000 * 100_000_000
+MAX_SATOSHIS_POSSIBLE = 10000
 
-INITIAL_BLOCK_REWARD = 50 * 100_000_000
+INITIAL_BLOCK_REWARD = 5
 REWARD_UPDATE_INTERVAL = 20_000
 
 # A block cannot have timestamp greater than this time in the future
