@@ -313,8 +313,11 @@ class Chain:
     @classmethod
     def build_from_header_list(cls, hlist: List[BlockHeader]):
         nchain = cls()
-        nchain.header_list = hlist
-        nchain.length = len(nchain.header_list)
+        nchain.header_list = []
+        for header in hlist:
+            nchain.header_list.append(header)
+            nchain.length = len(nchain.header_list)
+            nchain.update_target_difficulty()
         nchain.build_utxo()
         return nchain
 
@@ -535,11 +538,9 @@ class BlockChain:
                 if dhash(h) == block.header.prev_block_hash:
                     newhlist = []
                     for hh in hlist:
-                        if dhash(hh) != block.header.prev_block_hash:
-                            newhlist.append(hh)
-                        else:
+                        newhlist.append(hh)
+                        if dhash(hh) == block.header.prev_block_hash:
                             break
-                    newhlist.append(h)
 
                     nchain = Chain.build_from_header_list(newhlist)
                     if nchain.add_block(block):
