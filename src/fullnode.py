@@ -169,13 +169,7 @@ def sync_with_peers():
     Timer(consts.AVERAGE_BLOCK_MINE_INTERVAL // 2, sync_with_peers).start()
 
 
-def display_wallet():
-    print("Public key is : " + MY_WALLET.public_key)
-    print("Private key is : " + MY_WALLET.private_key)
-
-
 def check_balance():
-    display_wallet()
     current_balance = 0
     for x, utxo_list in BLOCKCHAIN.active_chain.utxo.utxo.items():
         tx_out = utxo_list[0]
@@ -207,7 +201,9 @@ def send_bounty(bounty: int, receiver_public_key: str):
         logger.info("Wallet: Attempting to Send Transaction")
         try:
             requests.post(
-                "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newtransaction", data={"transaction": transaction.to_json()}
+                "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newtransaction",
+                data={"transaction": transaction.to_json()},
+                timeout=(5, 1),
             )
         except Exception as e:
             logger.error("Wallet: Could not Send Transaction. Try Again.")
@@ -309,7 +305,7 @@ def received_new_block():
                 # Broadcast block to other peers
                 for peer in PEER_LIST:
                     try:
-                        requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()})
+                        requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()}, timeout=(5, 1))
                     except Exception as e:
                         logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
             # TODO Make new chain/ orphan set for Block that is not added
@@ -341,14 +337,14 @@ def received_new_transaction():
                     # Broadcast block t other peers
                     for peer in PEER_LIST:
                         try:
-                            requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()})
+                            requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()}, timeout=(5,1))
                         except Exception as e:
                             logger.debug("Flask: Requests: cannot send block to peer" + get_peer_url(peer))
                 else:
                     return jsonify("Transaction Already received")
             else:
                 logger.debug("The transation is not valid, not added to Mempool")
-                return jsonify("Not Valid Transaction") 
+                return jsonify("Not Valid Transaction")
         except Exception as e:
             logger.error("Flask: New Transaction: Invalid tx received: " + str(e))
     return jsonify("Done")
@@ -365,14 +361,12 @@ def send():
         return render_template("send.html")
 
     if request.method == "POST":
-        print(request.form)
         publickey = request.form["public_key"]
         bounty = request.form["satoshis"]
         try:
             amt = int(bounty)
             if len(publickey) == 128:
                 if check_balance() > amt:
-                    print(publickey + "    " + bounty)
                     message = "Your satoshis are sent !!!"
                     send_bounty(amt, publickey)
                     return render_template("send.html", message=message)
@@ -391,8 +385,25 @@ def checkblance():
 
 @app.route("/info")
 def sendinfo():
-    s = "No. of Blocks: " + str(BLOCKCHAIN.active_chain.length) + "<br>" + dhash(BLOCKCHAIN.active_chain.header_list[-1]) + "<br>" + "Number of chains " + str(len(BLOCKCHAIN.chains)) + "<br>" + "Balance " + str(check_balance())
+    s = (
+        "No. of Blocks: "
+        + str(BLOCKCHAIN.active_chain.length)
+        + "<br>"
+        + dhash(BLOCKCHAIN.active_chain.header_list[-1])
+        + "<br>"
+        + "Number of chains "
+        + str(len(BLOCKCHAIN.chains))
+        + "<br>"
+        + "Balance "
+        + str(check_balance())
+        + "<br>"
+        + "Difficulty: "
+        + str(BLOCKCHAIN.active_chain.target_difficulty)
+        + "<br>Block reward "
+        + str(BLOCKCHAIN.active_chain.current_block_reward())
+    )
     return s
+
 
 # def user_input():
 #     while True:
@@ -426,8 +437,8 @@ if __name__ == "__main__":
         sync_with_peers()
 
         # Start the User Interface Thread
-        #t = Thread(target=user_input, name="UserInterface", daemon=True)
-        #t.start()
+        # t = Thread(target=user_input, name="UserInterface", daemon=True)
+        # t.start()
 
         t = Thread(target=start_mining_thread, daemon=True)
         t.start()
