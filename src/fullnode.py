@@ -1,5 +1,4 @@
 import json
-import random
 import time
 from multiprocessing import Pool
 from threading import Thread, Timer
@@ -9,11 +8,11 @@ import requests
 from flask import Flask, jsonify, render_template, request
 
 import utils.constants as consts
-from core import Block, SingleOutput, Transaction, TxIn, TxOut, genesis_block
+from core import (Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut,
+                  genesis_block)
 from miner import Miner
 from utils.logger import logger
-from utils.storage import (check_block_in_db, get_block_from_db,
-                           get_wallet_from_db)
+from utils.storage import get_block_from_db, get_wallet_from_db
 from utils.utils import dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
@@ -422,8 +421,6 @@ if __name__ == "__main__":
         sync_with_peers()
 
         # Start the User Interface Thread
-        Thread(target=user_input, name="UserInterface", daemon=True).start()
-
         #t = Thread(target=user_input, name="UserInterface", daemon=True)
         #t.start()
 
