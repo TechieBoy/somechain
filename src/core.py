@@ -484,15 +484,7 @@ class Chain:
                     logger.info("Updating Block Difficulty to " + str(self.target_difficulty))
 
     def is_proper_difficulty(self, bhash: str) -> bool:
-        pow = 0
-        for c in bhash:
-            if not c == "0":
-                break
-            else:
-                pow += 1
-        if pow < self.target_difficulty:
-            return False
-        return True
+        return bhash[: self.target_difficulty] == "0" * self.target_difficulty
 
     def current_block_reward(self) -> int:
         """Returns the current block reward
