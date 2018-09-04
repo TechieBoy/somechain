@@ -14,14 +14,15 @@ from dataclasses import dataclass, field
 from operator import attrgetter
 from statistics import median
 from sys import getsizeof
-from typing import Any, Dict, List, Optional
 from threading import RLock
+from typing import Any, Dict, List, Optional
 
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
-from utils.storage import add_block_to_db, get_block_from_db, check_block_in_db
-from utils.utils import dhash, get_time_difference_from_now_secs, merkle_hash, lock
+from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db
+from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
+                         merkle_hash)
 from wallet import Wallet
 
 
@@ -310,6 +311,14 @@ class Chain:
     # The Number of Coins in existence
     total_satoshis: int = 0
 
+    @classmethod
+    def build_from_header_list(cls, hlist: List[BlockHeader]):
+        nchain = cls()
+        nchain.header_list = hlist
+        nchain.length = len(nchain.header_list)
+        nchain.build_utxo()
+        return nchain
+
     # Build the UTXO Set from scratch
     def build_utxo(self):
         for header in self.header_list:
@@ -513,42 +522,33 @@ class BlockChain:
             logger.debug("Chain: AddBlock: Block already exists")
             return False
 
-        added_block = False
         for chain in self.chains:
-            if chain.length == 0:
-                if chain.add_block(block):
-                    added_block = True
-            elif block.header.prev_block_hash == dhash(chain.header_list[-1]):
+            if chain.length == 0 or block.header.prev_block_hash == dhash(chain.header_list[-1]):
                 if chain.add_block(block):
                     self.update_active_chain()
-                    added_block = True
+                    return True
+
         self.chains.sort(key=attrgetter("length"), reverse=True)
-        if not added_block:
-            for chain in self.chains:
-                hlist = chain.header_list
-                for h in reversed(hlist):
-                    # Check if block can be added for current header
-                    if dhash(h) == block.header.prev_block_hash:
-                        nchain = Chain()
-                        newhlist = []
-                        for hh in hlist:
-                            if dhash(hh) != block.header.prev_block_hash:
-                                newhlist.append(hh)
-                            else:
-                                newhlist.append(hh)
-                                break
-                        nchain.header_list = newhlist
-                        nchain.length = len(nchain.header_list)
-                        nchain.build_utxo()
-                        nchain.add_block(block)
+        for chain in self.chains:
+            hlist = chain.header_list
+            for h in reversed(hlist):
+                # Check if block can be added for current header
+                if dhash(h) == block.header.prev_block_hash:
+                    newhlist = []
+                    for hh in hlist:
+                        if dhash(hh) != block.header.prev_block_hash:
+                            newhlist.append(hh)
+                        else:
+                            break
+                    newhlist.append(h)
+
+                    nchain = Chain.build_from_header_list(newhlist)
+                    if nchain.add_block(block):
                         self.chains.append(nchain)
                         self.update_active_chain()
                         logger.debug(f"There was a soft fork and a new chain was created with length {nchain.length}")
-                        added_block = True
-                        break
-                if added_block:
-                    break
-        return added_block
+                        return True
+        return False
 
 
 genesis_block_transaction = [
