@@ -195,7 +195,7 @@ def send_bounty(bounty: int, receiver_public_key: str):
             vin={},
             vout={0: TxOut(amount=bounty, address=receiver_public_key), 1: TxOut(amount=0, address=MY_WALLET.public_key)},
         )
-        calculate_transaction_fees(transaction, MY_WALLET, bounty, fees=100)
+        calculate_transaction_fees(transaction, MY_WALLET, bounty, fees=1)
 
         logger.debug(transaction)
         logger.info("Wallet: Attempting to Send Transaction")
