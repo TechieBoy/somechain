@@ -88,7 +88,7 @@ def greet_peer(peer: Dict[str, Any]) -> bool:
         url = get_peer_url(peer)
         data = {"port": consts.MINER_SERVER_PORT, "version": consts.MINER_VERSION, "blockheight": BLOCKCHAIN.active_chain.length}
         # Send a POST request to the peer
-        r = requests.post(url + "/", data=data)
+        r = requests.post(url + "/greetpeer", data=data)
         data = json.loads(r.text)
         # Update the peer data in the peer list with the new data received from the peer.
         if data.get("blockheight", None):
@@ -237,7 +237,7 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: in
     tx.sign(w)
 
 
-@app.route("/", methods=["POST"])
+@app.route("/greetpeer", methods=["POST"])
 def hello():
     try:
         peer = {}
@@ -354,7 +354,7 @@ def received_new_transaction():
     return jsonify("Done")
 
 
-@app.route("/home")
+@app.route("/")
 def home():
     return render_template("home.html")
 
@@ -388,6 +388,11 @@ def send():
 def checkblance():
     return str(check_balance())
 
+
+@app.route("/info")
+def sendinfo():
+    s = "No. of Blocks: " + str(BLOCKCHAIN.active_chain.length) + "<br>" + dhash(BLOCKCHAIN.active_chain.header_list[-1]) + "<br>" + "Number of chains " + str(len(BLOCKCHAIN.chains)) + "<br>" + "Balance " + str(check_balance())
+    return s
 
 # def user_input():
 #     while True:

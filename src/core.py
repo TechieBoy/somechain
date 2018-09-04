@@ -21,8 +21,7 @@ import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
 from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db
-from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
-                         merkle_hash)
+from utils.utils import dhash, get_time_difference_from_now_secs, lock, merkle_hash
 from wallet import Wallet
 
 
