@@ -205,7 +205,7 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: in
             tx.vin[i] = TxIn(payout=SingleOutput.from_json(so), pub_key=w.public_key, sig="")
             i += 1
     tx.vout[1].amount = current_amount - bounty - fees
-
+    logger.debug(f"Amount: {tx.vout[1].amount}, CA:{current_amount}, Bounty:{bounty}, Fees:{fees}")
     tx.fees = fees
 
     tx.sign(w)
