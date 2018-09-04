@@ -21,7 +21,8 @@ import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
 from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db
-from utils.utils import dhash, get_time_difference_from_now_secs, lock, merkle_hash
+from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
+                         merkle_hash)
 from wallet import Wallet
 
 
@@ -551,7 +552,7 @@ genesis_block_transaction = [
         fees=0,
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig=consts.GENESIS_BLOCK_SIGNATURE, pub_key="")},
-        vout={0: TxOut(amount=5000000000, address=consts.WALLET_PUBLIC), 1: TxOut(amount=0, address=consts.WALLET_PUBLIC)},
+        vout={0: TxOut(amount=5, address=consts.WALLET_PUBLIC), 1: TxOut(amount=0, address=consts.WALLET_PUBLIC)},
     )
 ]
 
@@ -563,7 +564,7 @@ genesis_block_header = BlockHeader(
     merkle_root=merkle_hash(genesis_block_transaction),
     timestamp=1535646190,
     target_difficulty=5,
-    nonce=2215855,
+    nonce=1382307,
 )
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
 
