@@ -23,6 +23,8 @@ MINER_VERSION = "0.1"
 # BLOCKCHAIN CONSTANTS
 HASH_LENGTH_HEX = 64  # 256 bit string is 64 hexa_dec string
 
+FORK_CHAIN_HEIGHT = 7  # Keep only chains that are within this height of the active chain
+
 MAX_BLOCK_SIZE_KB = 4096
 MAX_SATOSHIS_POSSIBLE = 10000
 
@@ -32,10 +34,10 @@ REWARD_UPDATE_INTERVAL = 20_000
 # A block cannot have timestamp greater than this time in the future
 BLOCK_MAX_TIME_FUTURE_SECS = 2 * 60 * 60
 
-INITIAL_BLOCK_DIFFICULTY = 4
+INITIAL_BLOCK_DIFFICULTY = 1
 
 BLOCK_DIFFICULTY_UPDATE_INTERVAL = 5  # number of blocks
-AVERAGE_BLOCK_MINE_INTERVAL = 30  # seconds
+AVERAGE_BLOCK_MINE_INTERVAL = 2 * 60  # seconds
 MAXIMUM_TARGET_DIFFICULTY = "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
 # Cheat Code

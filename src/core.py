@@ -527,6 +527,9 @@ class BlockChain:
 
     def update_active_chain(self):
         self.active_chain = max(self.chains, key=attrgetter("length"))
+        max_length = self.active_chain.length
+        # Try removing old chains
+        self.chains = [chain for chain in self.chains if chain.length > max_length - consts.FORK_CHAIN_HEIGHT]
 
     @lock(block_lock)
     def add_block(self, block: Block):
@@ -540,7 +543,6 @@ class BlockChain:
                     self.update_active_chain()
                     if id(chain) == id(self.active_chain):
                         # Remove the transactions from MemPool
-                        logger.debug("Active Chain: Removing Transaction from Mempool")
                         self.remove_transactions_from_mempool(block)
                     return True
 
