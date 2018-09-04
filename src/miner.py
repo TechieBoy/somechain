@@ -30,11 +30,11 @@ class Miner:
         if not self.is_mining():
             self.p = Process(target=self.__mine, args=(mempool, chain, payout_addr))
             self.p.start()
-            logger.debug("Started mining")
+            # logger.debug("Started mining")
 
     def stop_mining(self):
         if self.is_mining():
-            logger.debug("Miner: Called Stop Mining")
+            # logger.debug("Miner: Called Stop Mining")
             self.p.terminate()
             self.p = None
 
@@ -73,7 +73,7 @@ class Miner:
     def __mine(self, mempool: Set[Transaction], chain: Chain, payout_addr: str) -> Block:
         c_pool = list(copy.deepcopy(mempool))
         mlist, fees = self.__calculate_best_transactions(c_pool)
-        logger.debug(f"Miner: Will mine {len(mlist)} transactions and get {fees} satoshis in fees")
+        # logger.debug(f"Miner: Will mine {len(mlist)} transactions and get {fees} satoshis in fees")
         coinbase_tx_in = {0: TxIn(payout=None, sig="Paisa mila mujhe", pub_key="Ole Ole Ole")}
         coinbase_tx_out = {
             0: TxOut(amount=chain.current_block_reward(), address=payout_addr),
@@ -104,12 +104,10 @@ class Miner:
             bhash = dhash(block_header)
             if chain.is_proper_difficulty(bhash):
                 block = Block(header=block_header, transactions=mlist)
-                r = requests.post(
-                    "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data={"block": block.to_json()}
+                requests.post("http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data={"block": block.to_json()})
+                logger.info(
+                    f"Miner: Mined Block with {len(mlist)} transactions, Got {fees} in fees and {chain.current_block_reward()} as reward"
                 )
-                logger.debug(f"Miner: Response Received {r.text}")
-                logger.info(f"Miner: Mined Block with {len(mlist)} transactions, Got {fees} in fees and {chain.current_block_reward()} as reward")
-                logger.info(f"Miner: Mined block has hash {bhash}")
                 DONE = True
                 break
         if not DONE:
