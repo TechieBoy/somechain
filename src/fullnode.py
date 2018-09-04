@@ -190,20 +190,7 @@ def send_bounty(bounty: int, receiver_public_key: str):
 
 
 def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: int):
-    current_amount = 0
-    i = 0
-    for so, utxo_list in BLOCKCHAIN.active_chain.utxo.utxo.items():
-        tx_out = utxo_list[0]
-        if utxo_list[2]:
-            # check for coinbase TxIn Maturity
-            if not BLOCKCHAIN.active_chain.length - utxo_list[1].height > consts.COINBASE_MATURITY:
-                continue
-        if current_amount > bounty:
-            break
-        if tx_out.address == w.public_key:
-            current_amount += tx_out.amount
-            tx.vin[i] = TxIn(payout=SingleOutput.from_json(so), pub_key=w.public_key, sig="")
-            i += 1
+    current_amount = check_balance()
     tx.vout[1].amount = current_amount - bounty - fees
     logger.debug(f"Amount: {tx.vout[1].amount}, CA:{current_amount}, Bounty:{bounty}, Fees:{fees}")
     tx.fees = fees
