@@ -5,11 +5,10 @@ from threading import Thread, Timer
 from typing import Any, Dict, List, Set
 
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
 import utils.constants as consts
-from core import (Block, Chain, SingleOutput, Transaction, TxIn, TxOut,
-                  genesis_block)
+from core import Block, SingleOutput, Transaction, TxIn, TxOut, genesis_block
 from miner import Miner
 from utils.logger import logger
 from utils.storage import get_block_from_db, get_wallet_from_db
@@ -164,7 +163,7 @@ def send_bounty(bounty: int, receiver_public_key: str):
         logger.info("Wallet: Attempting to Send Transaction")
         try:
             requests.post(
-            "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newtransaction", data={"transaction": transaction.to_json()}
+                "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newtransaction", data={"transaction": transaction.to_json()}
             )
         except Exception as e:
             logger.error("Wallet: Could not Send Transaction. Try Again.")
@@ -296,28 +295,63 @@ def received_new_transaction():
     return jsonify("Done")
 
 
-def user_input():
-    while True:
+@app.route("/home")
+def home():
+    return render_template("home.html")
+
+
+@app.route("/send", methods=["POST", "GET"])
+def send():
+    if request.method == "GET":
+        return render_template("send.html")
+
+    if request.method == "POST":
+        print(request.form)
+        publickey = request.form["public_key"]
+        bounty = request.form["satoshis"]
         try:
-            print("Welcome to your wallet!")
-            option = input("1 -> Check Balance\n2 -> Send Money\n")
-            if option == "1":
-                current_balance = check_balance()
-                print("Your current balance is : " + str(current_balance))
-            elif option == "2":
-                bounty = int(input("Enter Amount\n"))
-                receiver_port = input("Enter reciever port\n")
-                send_bounty(bounty, json.loads(get_wallet_from_db(receiver_port))[1])
-            elif option == "3":
-                print("No. of Blocks: ", ACTIVE_CHAIN.length)
-            elif option == "4":
-                bounty = int(input("Enter Amount\n"))
-                receiver_public_key = input("Enter address of receiver\n")
-                send_bounty(bounty, receiver_public_key)
+            amt = int(bounty)
+            if len(publickey) == 128:
+                if check_balance() > amt:
+                    print(publickey + "    " + bounty)
+                    message = "Your satoshis are sent !!!"
+                    send_bounty(amt, publickey)
+                    return render_template("send.html", message=message)
             else:
-                print("Invalid Input. Try Again")
+                message = "Check your inputs"
+                return render_template("send.html", message=message)
         except Exception as e:
-            logger.error("UserInput: " + str(e))
+            message = "Enter numeric satoshis"
+            return render_template("send.html", message=message)
+
+
+@app.route("/checkbalance")
+def checkblance():
+    return str(check_balance())
+
+
+# def user_input():
+#     while True:
+#         try:
+#             print("Welcome to your wallet!")
+#             option = input("1 -> Check Balance\n2 -> Send Money\n")
+#             if option == "1":
+#                 current_balance = check_balance()
+#                 print("Your current balance is : " + str(current_balance))
+#             elif option == "2":
+#                 bounty = int(input("Enter Amount\n"))
+#                 receiver_port = input("Enter reciever port\n")
+#                 send_bounty(bounty, json.loads(get_wallet_from_db(receiver_port))[1])
+#             elif option == "3":
+#                 print("No. of Blocks: ", ACTIVE_CHAIN.length)
+#             elif option == "4":
+#                 bounty = int(input("Enter Amount\n"))
+#                 receiver_public_key = input("Enter address of receiver\n")
+#                 send_bounty(bounty, receiver_public_key)
+#             else:
+#                 print("Invalid Input. Try Again")
+#         except Exception as e:
+#             logger.error("UserInput: " + str(e))
 
 
 if __name__ == "__main__":
@@ -333,8 +367,8 @@ if __name__ == "__main__":
         PEER_LIST = new_peer_list
         sync(PEER_LIST)
 
-        t = Thread(target=user_input, name="UserInterface", daemon=True)
-        t.start()
+        #t = Thread(target=user_input, name="UserInterface", daemon=True)
+        #t.start()
 
         t = Thread(target=start_mining_thread, daemon=True)
         t.start()
