@@ -15,7 +15,7 @@ from operator import attrgetter
 from statistics import median
 from sys import getsizeof
 from threading import RLock
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
@@ -507,6 +507,23 @@ class BlockChain:
         self.active_chain: Chain = Chain()
         self.chains: List[Chain] = []
         self.chains.append(self.active_chain)
+        self.mempool: Set[Transaction] = set()
+
+    def remove_transactions_from_mempool(self, block: Block):
+        """Removes transaction from the mempool based on a new received block
+
+        Arguments:
+            block {Block} -- The block which is received
+        """
+        new_mempool = set()
+        for x in self.mempool:
+            DONE = True
+            for t in block.transactions:
+                if dhash(x) == dhash(t):
+                    DONE = False
+            if DONE:
+                new_mempool.add(x)
+        self.mempool = new_mempool
 
     def update_active_chain(self):
         self.active_chain = max(self.chains, key=attrgetter("length"))
@@ -521,6 +538,10 @@ class BlockChain:
             if chain.length == 0 or block.header.prev_block_hash == dhash(chain.header_list[-1]):
                 if chain.add_block(block):
                     self.update_active_chain()
+                    if id(chain) == id(self.active_chain):
+                        # Remove the transactions from MemPool
+                        logger.debug("Active Chain: Removing Transaction from Mempool")
+                        self.remove_transactions_from_mempool(block)
                     return True
 
         self.chains.sort(key=attrgetter("length"), reverse=True)

@@ -21,8 +21,6 @@ BLOCKCHAIN = BlockChain()
 
 PEER_LIST: List[Dict[str, Any]] = []
 
-MEMPOOL: Set[Transaction] = set()
-
 MY_WALLET = Wallet()
 
 miner = Miner()
@@ -31,7 +29,7 @@ miner = Miner()
 def mining_thread_task():
     while True:
         if not miner.is_mining():
-            mlist = list(MEMPOOL)
+            mlist = list(BLOCKCHAIN.mempool)
             fees, size = miner.calculate_transaction_fees_and_size(mlist)
             time_diff = -get_time_difference_from_now_secs(BLOCKCHAIN.active_chain.header_list[-1].timestamp)
             if (
@@ -39,7 +37,7 @@ def mining_thread_task():
                 or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6)
                 or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
             ):
-                miner.start_mining(MEMPOOL, BLOCKCHAIN.active_chain, MY_WALLET.public_key)
+                miner.start_mining(BLOCKCHAIN.mempool, BLOCKCHAIN.active_chain, MY_WALLET.public_key)
         time.sleep(5)
 
 
@@ -47,25 +45,6 @@ def start_mining_thread():
     time.sleep(5)
     t = Thread(target=mining_thread_task, name="Miner", daemon=True)
     t.start()
-
-
-def remove_transactions_from_mempool(block: Block):
-    """Removes transaction from the mempool based on a new received block
-
-    Arguments:
-        block {Block} -- The block which is received
-    """
-
-    global MEMPOOL
-    new_mempool = set()
-    for x in MEMPOOL:
-        DONE = True
-        for t in block.transactions:
-            if dhash(x) == dhash(t):
-                DONE = False
-        if DONE:
-            new_mempool.add(x)
-    MEMPOOL = new_mempool
 
 
 def fetch_peer_list() -> List[Dict[str, Any]]:
@@ -301,8 +280,6 @@ def received_new_block():
                 return "Block already Received Before"
             if BLOCKCHAIN.add_block(block):
                 logger.info("Flask: Received a New Valid Block, Adding to Chain")
-                # Remove the transactions from MemPools
-                remove_transactions_from_mempool(block)
 
                 logger.debug("Flask: Sending new block to peers")
                 # Broadcast block to other peers
@@ -327,16 +304,15 @@ def received_new_block():
 # Transactions for all active chains
 @app.route("/newtransaction", methods=["POST"])
 def received_new_transaction():
-    global MEMPOOL
     transaction_json = str(request.form.get("transaction", None))
     if transaction_json:
         try:
             tx = Transaction.from_json(transaction_json).object()
             # Add transaction to Mempool
             if BLOCKCHAIN.active_chain.is_transaction_valid(tx):
-                if tx not in MEMPOOL:
+                if tx not in BLOCKCHAIN.mempool:
                     logger.debug("Valid Transaction received, Adding to Mempool")
-                    MEMPOOL.add(tx)
+                    BLOCKCHAIN.mempool.add(tx)
                     # Broadcast block t other peers
                     for peer in PEER_LIST:
                         try:
