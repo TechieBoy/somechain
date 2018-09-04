@@ -302,7 +302,7 @@ class Chain:
     header_list: List[BlockHeader] = field(default_factory=list)
 
     # The UTXO Set
-    utxo: Utxo = Utxo()
+    utxo: Utxo = field(default_factory=Utxo)
 
     # The Target difficulty
     target_difficulty: int = consts.INITIAL_BLOCK_DIFFICULTY
@@ -489,7 +489,7 @@ class Chain:
 
     def current_block_reward(self) -> int:
         """Returns the current block reward
-        
+
         Returns:
             int -- The current block reward in satoshis
         """
