@@ -8,8 +8,7 @@ import requests
 from flask import Flask, jsonify, render_template, request
 
 import utils.constants as consts
-from core import (Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut,
-                  genesis_block)
+from core import Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
 from miner import Miner
 from utils.logger import logger
 from utils.storage import get_block_from_db, get_wallet_from_db
@@ -36,12 +35,12 @@ def mining_thread_task():
             fees, size = miner.calculate_transaction_fees_and_size(mlist)
             time_diff = -get_time_difference_from_now_secs(BLOCKCHAIN.active_chain.header_list[-1].timestamp)
             if (
-                fees >= 1000
+                fees >= 1
                 or (size >= consts.MAX_BLOCK_SIZE_KB / 1.6)
                 or (time_diff > consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
             ):
                 miner.start_mining(MEMPOOL, BLOCKCHAIN.active_chain, MY_WALLET.public_key)
-        time.sleep(consts.AVERAGE_BLOCK_MINE_INTERVAL / consts.BLOCK_MINING_SPEEDUP)
+        time.sleep(5)
 
 
 def start_mining_thread():
@@ -104,7 +103,6 @@ def greet_peer(peer: Dict[str, Any]) -> bool:
 
 def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     r = requests.post(get_peer_url(peer) + "/getblock", data={"headerhash": header_hash})
-    logger.debug(r.text)
     return Block.from_json(r.text).object()
 
 
@@ -140,12 +138,13 @@ def sync(max_peer):
     fork_height = find_fork_height(max_peer)
     r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": fork_height})
     hash_list = json.loads(r.text)
-    logger.debug("Received the Following HashList from peer " + str(max_peer))
+    logger.debug("Received the Following HashList from peer " + str(get_peer_url(max_peer)))
     logger.debug(hash_list)
     for hhash in hash_list:
         block = receive_block_from_peer(max_peer, hhash)
         if not BLOCKCHAIN.add_block(block):
             logger.error("Sync: Block received is invalid, Cannot Sync")
+            break
     return
 
 
@@ -251,7 +250,7 @@ def hello():
                 ADD_ENTRY = False
         if ADD_ENTRY:
             PEER_LIST.append(peer)
-        logger.debug("Flask: Greet, A new peer joined, Adding to List")
+            logger.debug("Flask: Greet, A new peer joined, Adding to List")
     except Exception as e:
         logger.debug("Flask: Greet Error: " + str(e))
         pass
@@ -337,7 +336,9 @@ def received_new_transaction():
                     # Broadcast block t other peers
                     for peer in PEER_LIST:
                         try:
-                            requests.post(get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()}, timeout=(5,1))
+                            requests.post(
+                                get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()}, timeout=(5, 1)
+                            )
                         except Exception as e:
                             logger.debug("Flask: Requests: cannot send block to peer" + get_peer_url(peer))
                 else:

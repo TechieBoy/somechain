@@ -477,12 +477,14 @@ class Chain:
         length = len(self.header_list)
         if length > 0 and length % dui == 0:
             time_elapsed = self.header_list[-1].timestamp - self.header_list[-dui].timestamp
-            self.target_difficulty *= (consts.AVERAGE_BLOCK_MINE_INTERVAL * dui) // time_elapsed
+            update = (consts.AVERAGE_BLOCK_MINE_INTERVAL * dui) / time_elapsed
+            self.target_difficulty = int(self.target_difficulty * update)
             if self.target_difficulty < 1:
                 self.target_difficulty = 1
+            logger.debug(f"Chain: Updating Block Difficulty, new difficulty {self.target_difficulty}")
 
     def is_proper_difficulty(self, bhash: str) -> bool:
-        target_difficulty = int(consts.MAXIMUM_TARGET_DIFFICULTY, 16) // self.target_difficulty
+        target_difficulty = int(consts.MAXIMUM_TARGET_DIFFICULTY, 16) / self.target_difficulty
         return int(bhash, 16) < target_difficulty
 
     def current_block_reward(self) -> int:
@@ -513,7 +515,7 @@ class BlockChain:
     def add_block(self, block: Block):
         if check_block_in_db(dhash(block.header)):
             logger.debug("Chain: AddBlock: Block already exists")
-            return False
+            return True
 
         for chain in self.chains:
             if chain.length == 0 or block.header.prev_block_hash == dhash(chain.header_list[-1]):
