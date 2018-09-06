@@ -20,8 +20,10 @@ from typing import Any, Dict, List, Optional, Set
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
-from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db, remove_block_from_db
-from utils.utils import dhash, get_time_difference_from_now_secs, lock, merkle_hash
+from utils.storage import (add_block_to_db, check_block_in_db,
+                           get_block_from_db, remove_block_from_db)
+from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
+                         merkle_hash)
 from wallet import Wallet
 
 
@@ -318,10 +320,8 @@ class Chain:
         nchain = cls()
         nchain.header_list = []
         for header in hlist:
-            nchain.header_list.append(header)
-            nchain.length = len(nchain.header_list)
-            nchain.update_target_difficulty()
-        nchain.build_utxo()
+            block = Block.from_json(get_block_from_db(dhash(header))).object()
+            nchain.add_block(block)
         return nchain
 
     # Build the UTXO Set from scratch
