@@ -21,8 +21,10 @@ from typing import Any, Dict, List, Optional, Set
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
-from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db, remove_block_from_db
-from utils.utils import dhash, get_time_difference_from_now_secs, lock, merkle_hash
+from utils.storage import (add_block_to_db, check_block_in_db,
+                           get_block_from_db, remove_block_from_db)
+from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
+                         merkle_hash)
 from wallet import Wallet
 
 
@@ -503,6 +505,7 @@ class BlockChain:
     block_lock = RLock()
     block_ref_count: Counter = Counter()
 
+
     def __init__(self):
         self.active_chain: Chain = Chain()
         self.chains: List[Chain] = []
@@ -536,6 +539,7 @@ class BlockChain:
             else:
                 for hdr in chain.header_list:
                     if BlockChain.block_ref_count[dhash(hdr)] == 1:
+                        del BlockChain.block_ref_count[dhash(hdr)]
                         remove_block_from_db(dhash(hdr))
                     else:
                         BlockChain.block_ref_count[dhash(hdr)] -= 1
@@ -551,6 +555,7 @@ class BlockChain:
         for chain in self.chains:
             if chain.length == 0 or block.header.prev_block_hash == dhash(chain.header_list[-1]):
                 if chain.add_block(block):
+                    BlockChain.block_ref_count[dhash(block.header)] += 1
                     self.update_active_chain()
                     if chain is self.active_chain:
                         # Remove the transactions from MemPool
@@ -572,11 +577,7 @@ class BlockChain:
                     nchain = Chain.build_from_header_list(newhlist)
                     if nchain.add_block(block):
                         for header in nchain.header_list:
-                            val = BlockChain.block_ref_count[dhash(header)]
-                            if val == 0:
-                                BlockChain.block_ref_count[dhash(header)] = 1
-                            else:
-                                BlockChain.block_ref_count[dhash(header)] += 1
+                            BlockChain.block_ref_count[dhash(header)] += 1
                         self.chains.append(nchain)
                         self.update_active_chain()
                         logger.debug(f"There was a soft fork and a new chain was created with length {nchain.length}")
