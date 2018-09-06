@@ -10,6 +10,7 @@ TODO:
 
 import copy
 import json
+from collections import Counter
 from dataclasses import dataclass, field
 from operator import attrgetter
 from statistics import median
@@ -20,10 +21,8 @@ from typing import Any, Dict, List, Optional, Set
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
-from utils.storage import (add_block_to_db, check_block_in_db,
-                           get_block_from_db, remove_block_from_db)
-from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
-                         merkle_hash)
+from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db, remove_block_from_db
+from utils.utils import dhash, get_time_difference_from_now_secs, lock, merkle_hash
 from wallet import Wallet
 
 
@@ -223,9 +222,6 @@ class BlockHeader(DataClassJson):
 
     # Nonce to try to get a hash below target_difficulty
     nonce: int
-
-    # The number of chains this block belongs to
-    num_of_chains: int = field(repr=False, default=1)
 
 
 @dataclass
@@ -470,12 +466,7 @@ class Chain:
             self.update_target_difficulty()
             self.length = len(self.header_list)
             self.total_satoshis = self.current_block_reward()
-            if check_block_in_db(dhash(block.header)):
-                block_from_db = Block.from_json(get_block_from_db(dhash(block.header))).object()
-                block_from_db.header.num_of_chains += 1
-                add_block_to_db(block_from_db)
-            else:
-                add_block_to_db(block)
+            add_block_to_db(block)
             logger.info("Chain: Added Block " + str(block))
             return True
         return False
@@ -510,6 +501,7 @@ class Chain:
 class BlockChain:
 
     block_lock = RLock()
+    block_ref_count: Counter = Counter()
 
     def __init__(self):
         self.active_chain: Chain = Chain()
@@ -539,17 +531,15 @@ class BlockChain:
         # Try removing old chains
         new_chains = []
         for chain in self.chains:
-            if not chain.length > max_length - consts.FORK_CHAIN_HEIGHT:
+            if chain.length > max_length - consts.FORK_CHAIN_HEIGHT:
+                new_chains.append(chain)
+            else:
                 for hdr in chain.header_list:
-                    if hdr.num_of_chains == 1:
+                    if BlockChain.block_ref_count[dhash(hdr)] == 1:
                         remove_block_from_db(dhash(hdr))
                     else:
-                        hdr.num_of_chains -= 1
-                        blk_from_db = Block.from_json(get_block_from_db(dhash(hdr))).object()
-                        blk_from_db.header.num_of_chains -= 1
-                        add_block_to_db(blk_from_db)
-            else:
-                new_chains.append(chain)
+                        BlockChain.block_ref_count[dhash(hdr)] -= 1
+
         self.chains = new_chains
 
     @lock(block_lock)
@@ -562,7 +552,7 @@ class BlockChain:
             if chain.length == 0 or block.header.prev_block_hash == dhash(chain.header_list[-1]):
                 if chain.add_block(block):
                     self.update_active_chain()
-                    if id(chain) == id(self.active_chain):
+                    if chain is self.active_chain:
                         # Remove the transactions from MemPool
                         self.remove_transactions_from_mempool(block)
                     return True
@@ -581,6 +571,12 @@ class BlockChain:
 
                     nchain = Chain.build_from_header_list(newhlist)
                     if nchain.add_block(block):
+                        for header in nchain.header_list:
+                            val = BlockChain.block_ref_count[dhash(header)]
+                            if val == 0:
+                                BlockChain.block_ref_count[dhash(header)] = 1
+                            else:
+                                BlockChain.block_ref_count[dhash(header)] += 1
                         self.chains.append(nchain)
                         self.update_active_chain()
                         logger.debug(f"There was a soft fork and a new chain was created with length {nchain.length}")
