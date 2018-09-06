@@ -1,6 +1,6 @@
 import json
 import time
-from multiprocessing import Pool
+from multiprocessing import Pool, Process
 from threading import Thread, Timer
 from typing import Any, Dict, List, Set
 
@@ -22,11 +22,7 @@ app.config["DEBUG"] = True
 
 # You need to declare necessary configuration to initialize
 # flask-profiler as follows:
-app.config["flask_profiler"] = {
-    "enabled": app.config["DEBUG"],
-    "storage": {"engine": "sqlite"},
-    "ignore": ["^/static/.*"],
-}
+app.config["flask_profiler"] = {"enabled": app.config["DEBUG"], "storage": {"engine": "sqlite"}, "ignore": ["^/static/.*"]}
 
 BLOCKCHAIN = BlockChain()
 
@@ -50,6 +46,17 @@ def mining_thread_task():
             ):
                 miner.start_mining(BLOCKCHAIN.mempool, BLOCKCHAIN.active_chain, MY_WALLET.public_key)
         time.sleep(5)
+
+
+def send_to_all_peers(peers, url, data):
+    def request_task(peers, url, data):
+        for peer in peers:
+            try:
+                requests.post(get_peer_url(peer) + url, data=data, timeout=(5, 1))
+            except Exception as e:
+                logger.debug("Flask: Requests: Error while sending data in process" + str(peer))
+
+    Process(target=request_task, args=(peers, url, data), daemon=True).start()
 
 
 def start_mining_thread():
@@ -294,11 +301,8 @@ def received_new_block():
 
                 logger.debug("Flask: Sending new block to peers")
                 # Broadcast block to other peers
-                for peer in PEER_LIST:
-                    try:
-                        requests.post(get_peer_url(peer) + "/newblock", data={"block": block.to_json()}, timeout=(5, 1))
-                    except Exception as e:
-                        logger.debug("Flask: Requests: cannot send block to peer" + str(peer))
+                send_to_all_peers(PEER_LIST, "/newblock", data={"block": block.to_json()})
+
             # TODO Make new chain/ orphan set for Block that is not added
         except Exception as e:
             logger.error("Flask: New Block: invalid block received " + str(e))
@@ -325,13 +329,7 @@ def received_new_transaction():
                     logger.debug("Valid Transaction received, Adding to Mempool")
                     BLOCKCHAIN.mempool.add(tx)
                     # Broadcast block t other peers
-                    for peer in PEER_LIST:
-                        try:
-                            requests.post(
-                                get_peer_url(peer) + "/newtransaction", data={"transaction": tx.to_json()}, timeout=(5, 1)
-                            )
-                        except Exception as e:
-                            logger.debug("Flask: Requests: cannot send block to peer" + get_peer_url(peer))
+                    send_to_all_peers(PEER_LIST, "/newtransaction", data={"transaction": tx.to_json()})
                 else:
                     return jsonify("Transaction Already received")
             else:
