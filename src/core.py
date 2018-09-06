@@ -20,9 +20,8 @@ from typing import Any, Dict, List, Optional, Set
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
-from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db
-from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
-                         merkle_hash)
+from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db, remove_block_from_db
+from utils.utils import dhash, get_time_difference_from_now_secs, lock, merkle_hash
 from wallet import Wallet
 
 
@@ -223,8 +222,8 @@ class BlockHeader(DataClassJson):
     # Nonce to try to get a hash below target_difficulty
     nonce: int
 
-    #The number of chains this block belongs to 
-    num_of_chains: int = field(repr=False,default=1)
+    # The number of chains this block belongs to
+    num_of_chains: int = field(repr=False, default=1)
 
 
 @dataclass
@@ -233,7 +232,6 @@ class Block(DataClassJson):
 
     # The block header
     header: BlockHeader
-
 
     # The transactions in this block
     transactions: List[Transaction]
@@ -551,10 +549,8 @@ class BlockChain:
                         blk_from_db.header.num_of_chains -= 1
                         add_block_to_db(blk_from_db)
             else:
-                new_chains.append(chain)    
+                new_chains.append(chain)
         self.chains = new_chains
-                
-
 
     @lock(block_lock)
     def add_block(self, block: Block):
