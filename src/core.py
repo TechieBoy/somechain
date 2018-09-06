@@ -359,7 +359,7 @@ class Chain:
                 if block_hdr is not None:
                     if is_coinbase:
                         # check for coinbase TxIn Maturity
-                        if not self.length - block_hdr.height > consts.COINBASE_MATURITY:
+                        if not self.length - block_hdr.height >= consts.COINBASE_MATURITY:
                             logger.debug(str(self.length) + " " + str(block_hdr.height))
                             logger.debug("Chain: Coinbase not matured")
                             return False
