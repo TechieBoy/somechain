@@ -174,9 +174,9 @@ def check_balance():
     return int(current_balance)
 
 
-def send_bounty(bounty: int, receiver_public_key: str):
+def send_bounty(bounty: int, receiver_public_key: str, fees: int):
     current_balance = check_balance()
-    if current_balance < bounty:
+    if current_balance < bounty+fees:
         print("Insuficient balance ")
         print("Current balance : " + str(current_balance))
         print("You need " + str(current_balance - bounty) + "more money")
@@ -191,7 +191,7 @@ def send_bounty(bounty: int, receiver_public_key: str):
             vin={},
             vout={0: TxOut(amount=bounty, address=receiver_public_key), 1: TxOut(amount=0, address=MY_WALLET.public_key)},
         )
-        calculate_transaction_fees(transaction, MY_WALLET, bounty, fees=1)
+        calculate_transaction_fees(transaction, MY_WALLET, bounty, fees)
 
         logger.debug(transaction)
         logger.info("Wallet: Attempting to Send Transaction")
@@ -214,9 +214,9 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: in
         tx_out = utxo_list[0]
         if utxo_list[2]:
             # check for coinbase TxIn Maturity
-            if not BLOCKCHAIN.active_chain.length - utxo_list[1].height > consts.COINBASE_MATURITY:
+            if not (BLOCKCHAIN.active_chain.length - utxo_list[1].height) >= consts.COINBASE_MATURITY:
                 continue
-        if current_amount > bounty:
+        if current_amount >= bounty + fees:
             break
         if tx_out.address == w.public_key:
             current_amount += tx_out.amount
@@ -358,7 +358,7 @@ def send():
             if len(publickey) == 128:
                 if check_balance() > amt:
                     message = "Your satoshis are sent !!!"
-                    send_bounty(amt, publickey)
+                    send_bounty(amt, publickey,consts.FEES)
                     return render_template("send.html", message=message)
                 else:
                     message = "You have insufficient balance !!!"
