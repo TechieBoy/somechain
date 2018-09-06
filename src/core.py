@@ -223,6 +223,9 @@ class BlockHeader(DataClassJson):
     # Nonce to try to get a hash below target_difficulty
     nonce: int
 
+    #The number of chains this block belongs to 
+    num_of_chains: int = field(repr=False,default=1)
+
 
 @dataclass
 class Block(DataClassJson):
@@ -230,6 +233,7 @@ class Block(DataClassJson):
 
     # The block header
     header: BlockHeader
+
 
     # The transactions in this block
     transactions: List[Transaction]
@@ -464,11 +468,16 @@ class Chain:
     def add_block(self, block: Block) -> bool:
         if self.is_block_valid(block):
             self.header_list.append(block.header)
-            add_block_to_db(block)
             self.update_utxo(block)
             self.update_target_difficulty()
             self.length = len(self.header_list)
             self.total_satoshis = self.current_block_reward()
+            if check_block_in_db(dhash(block.header)):
+                block_from_db = Block.from_json(get_block_from_db(dhash(block.header))).object()
+                block_from_db.header.num_of_chains += 1
+                add_block_to_db(block_from_db)
+            else:
+                add_block_to_db(block)
             logger.info("Chain: Added Block " + str(block))
             return True
         return False
@@ -530,7 +539,22 @@ class BlockChain:
         self.active_chain = max(self.chains, key=attrgetter("length"))
         max_length = self.active_chain.length
         # Try removing old chains
-        self.chains = [chain for chain in self.chains if chain.length > max_length - consts.FORK_CHAIN_HEIGHT]
+        new_chains = []
+        for chain in self.chains:
+            if not chain.length > max_length - consts.FORK_CHAIN_HEIGHT:
+                for hdr in chain.header_list:
+                    if hdr.num_of_chains == 1:
+                        remove_block_from_db(dhash(hdr))
+                    else:
+                        hdr.num_of_chains -= 1
+                        blk_from_db = Block.from_json(get_block_from_db(dhash(hdr))).object()
+                        blk_from_db.header.num_of_chains -= 1
+                        add_block_to_db(blk_from_db)
+            else:
+                new_chains.append(chain)    
+        self.chains = new_chains
+                
+
 
     @lock(block_lock)
     def add_block(self, block: Block):
