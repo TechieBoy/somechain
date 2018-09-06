@@ -4,11 +4,13 @@ from multiprocessing import Pool
 from threading import Thread, Timer
 from typing import Any, Dict, List, Set
 
+import flask_profiler
 import requests
 from flask import Flask, jsonify, render_template, request
 
 import utils.constants as consts
-from core import Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
+from core import (Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut,
+                  genesis_block)
 from miner import Miner
 from utils.logger import logger
 from utils.storage import get_block_from_db, get_wallet_from_db
@@ -16,6 +18,15 @@ from utils.utils import dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
 app = Flask(__name__)
+app.config["DEBUG"] = True
+
+# You need to declare necessary configuration to initialize
+# flask-profiler as follows:
+app.config["flask_profiler"] = {
+    "enabled": app.config["DEBUG"],
+    "storage": {"engine": "sqlite"},
+    "ignore": ["^/static/.*"],
+}
 
 BLOCKCHAIN = BlockChain()
 
@@ -353,7 +364,7 @@ def send():
                     return render_template("send.html", message=message)
                 else:
                     message = "You have insufficient balance !!!"
-                    return render_template("send.html", message=message) 
+                    return render_template("send.html", message=message)
             else:
                 message = "Check your inputs"
                 return render_template("send.html", message=message)
@@ -429,7 +440,8 @@ if __name__ == "__main__":
 
         # Start Flask Server
         logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
-        app.run(port=consts.MINER_SERVER_PORT, threaded=True, host="0.0.0.0")
+        flask_profiler.init_app(app)
+        app.run(port=consts.MINER_SERVER_PORT, threaded=True, host="0.0.0.0", use_reloader=False)
 
     except KeyboardInterrupt:
         miner.stop_mining()
