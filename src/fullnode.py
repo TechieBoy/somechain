@@ -9,8 +9,7 @@ import requests
 from flask import Flask, jsonify, render_template, request
 
 import utils.constants as consts
-from core import (Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut,
-                  genesis_block)
+from core import Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
 from miner import Miner
 from utils.logger import logger
 from utils.storage import get_block_from_db, get_wallet_from_db
@@ -176,7 +175,7 @@ def check_balance():
 
 def send_bounty(bounty: int, receiver_public_key: str, fees: int):
     current_balance = check_balance()
-    if current_balance < bounty+fees:
+    if current_balance < bounty + fees:
         print("Insuficient balance ")
         print("Current balance : " + str(current_balance))
         print("You need " + str(current_balance - bounty) + "more money")
@@ -352,14 +351,15 @@ def send():
         return render_template("send.html")
 
     if request.method == "POST":
-        publickey = request.form["public_key"]
+        receiver_port = request.form["port"]
+        publickey = json.loads(get_wallet_from_db(receiver_port))[1]
         bounty = request.form["satoshis"]
         try:
             amt = int(bounty)
             if len(publickey) == 128:
                 if check_balance() > amt:
                     message = "Your satoshis are sent !!!"
-                    send_bounty(amt, publickey,consts.FEES)
+                    send_bounty(amt, publickey, consts.FEES)
                     return render_template("send.html", message=message)
                 else:
                     message = "You have insufficient balance !!!"
@@ -395,6 +395,8 @@ def sendinfo():
         + str(BLOCKCHAIN.active_chain.target_difficulty)
         + "<br>Block reward "
         + str(BLOCKCHAIN.active_chain.current_block_reward())
+        + "<br>Public Key "
+        + str(json.loads(get_wallet_from_db(consts.MINER_SERVER_PORT))[1])
     )
     return s
 
