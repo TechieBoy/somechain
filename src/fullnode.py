@@ -324,8 +324,8 @@ def received_new_transaction():
         try:
             tx = Transaction.from_json(transaction_json).object()
             # Add transaction to Mempool
-            if BLOCKCHAIN.active_chain.is_transaction_valid(tx):
-                if tx not in BLOCKCHAIN.mempool:
+            if tx not in BLOCKCHAIN.mempool:
+                if BLOCKCHAIN.active_chain.is_transaction_valid(tx):
                     logger.debug("Valid Transaction received, Adding to Mempool")
                     BLOCKCHAIN.mempool.add(tx)
                     # Broadcast block t other peers
@@ -337,6 +337,7 @@ def received_new_transaction():
                 return jsonify("Not Valid Transaction")
         except Exception as e:
             logger.error("Flask: New Transaction: Invalid tx received: " + str(e))
+            return jsonify("Not Valid Transaction")
     return jsonify("Done")
 
 

@@ -1,13 +1,12 @@
 import os
 from typing import TYPE_CHECKING
 
-import pickledb
+from sqlitedict import SqliteDict
 
 from .constants import BLOCK_DB_LOC, WALLET_DB_LOC
 from .utils import dhash
 
 if TYPE_CHECKING:
-    import os
     import sys
 
     sys.path.append(os.path.split(sys.path[0])[0])
@@ -15,50 +14,45 @@ if TYPE_CHECKING:
     from src.core import Block  # noqa
     from src.wallet import Wallet  # noqa
 
-BLOCK_DB = None
 WALLET_DB = None
 
-
-def load_wallet_db():
-    global WALLET_DB
-    if not WALLET_DB:
-        WALLET_DB = pickledb.load(WALLET_DB_LOC, True)
-    return WALLET_DB
+try:
+    os.remove(BLOCK_DB_LOC)
+except OSError:
+    pass
 
 
+# WALLET FUNCTIONS
 def get_wallet_from_db(port: str) -> str:
-    db = load_wallet_db()
-    return db.get(port)
+    with SqliteDict(WALLET_DB_LOC, autocommit=False) as db:
+        return db.get(port)
 
 
-def add_wallet_to_db(port: str, wallet: str) -> bool:
-    db = load_wallet_db()
-    return db.set(port, wallet)
+def add_wallet_to_db(port: str, wallet: str):
+    with SqliteDict(WALLET_DB_LOC, autocommit=False) as db:    
+        db[port] = wallet
+        db.commit()
 
 
-def load_block_db():
-    global BLOCK_DB
-    if not BLOCK_DB:
-        try:
-            os.remove(BLOCK_DB_LOC)
-        except OSError:
-            pass
-        BLOCK_DB = pickledb.load(BLOCK_DB_LOC, True)
-    return BLOCK_DB
-
-
+# BLOCK FUNCTIONS
 def get_block_from_db(header_hash: str) -> str:
-    db = load_block_db()
-    return db.get(header_hash)
+    with SqliteDict(BLOCK_DB_LOC, autocommit=False) as db:
+        return db.get(header_hash, None)
 
 
-def add_block_to_db(block: "Block") -> bool:
-    db = load_block_db()
-    return db.set(dhash(block.header), block.to_json())
+def add_block_to_db(block: "Block"):
+    with SqliteDict(BLOCK_DB_LOC, autocommit=False) as db:
+        db[dhash(block.header)] = block.to_json()
+        db.commit(blocking=False)
 
 
 def check_block_in_db(header_hash: str) -> bool:
-    db = load_block_db()
-    if db.get(header_hash):
-        return True
+    with SqliteDict(BLOCK_DB_LOC, autocommit=False) as db:    
+        if db.get(header_hash, None):
+            return True
     return False
+
+def remove_block_from_db(header_hash: str):
+    with SqliteDict(BLOCK_DB_LOC, autocommit=False) as db:    
+        del db[header_hash]
+        db.commit()
