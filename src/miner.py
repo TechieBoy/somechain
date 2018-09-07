@@ -75,7 +75,7 @@ class Miner:
         c_pool = list(copy.deepcopy(mempool))
         mlist, fees = self.__calculate_best_transactions(c_pool)
         # logger.debug(f"Miner: Will mine {len(mlist)} transactions and get {fees} satoshis in fees")
-        coinbase_tx_in = {0: TxIn(payout=None, sig="Paisa mila mujhe", pub_key="Ole Ole Ole")}
+        coinbase_tx_in = {0: TxIn(payout=None, sig="Receiving some Money", pub_key="Does it matter?")}
         coinbase_tx_out = {
             0: TxOut(amount=chain.current_block_reward(), address=payout_addr),
             1: TxOut(amount=fees, address=payout_addr),

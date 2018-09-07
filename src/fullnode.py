@@ -7,17 +7,14 @@ from typing import Any, Dict, List
 
 import requests
 import waitress
-from bottle import (BaseTemplate, Bottle, request, response, static_file,
-                    template)
+from bottle import BaseTemplate, Bottle, request, response, static_file, template
 
 import utils.constants as consts
-from core import (Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut,
-                  genesis_block)
+from core import Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
 from miner import Miner
 from utils.logger import logger
 from utils.storage import get_block_from_db, get_wallet_from_db
-from utils.utils import (compress, decompress, dhash,
-                         get_time_difference_from_now_secs)
+from utils.utils import compress, decompress, dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
 # from wsgi_lineprof.middleware import LineProfilerMiddleware
@@ -224,9 +221,7 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: in
             tx.vin[i] = TxIn(payout=SingleOutput.from_json(so), pub_key=w.public_key, sig="")
             i += 1
     tx.vout[1].amount = current_amount - bounty - fees
-    logger.debug(f"Amount: {tx.vout[1].amount}, CA:{current_amount}, Bounty:{bounty}, Fees:{fees}")
     tx.fees = fees
-
     tx.sign(w)
 
 
@@ -346,7 +341,7 @@ def process_new_transaction(request_data: bytes) -> str:
                 if BLOCKCHAIN.active_chain.is_transaction_valid(tx):
                     logger.debug("Valid Transaction received, Adding to Mempool")
                     BLOCKCHAIN.mempool.add(tx)
-                    # Broadcast block t other peers
+                    # Broadcast block to other peers
                     send_to_all_peers("/newtransaction", request_data)
                 else:
                     return "Transaction Already received"
@@ -355,6 +350,7 @@ def process_new_transaction(request_data: bytes) -> str:
                 return "Not Valid Transaction"
         except Exception as e:
             logger.error("Server: New Transaction: Invalid tx received: " + str(e))
+            raise e
             return "Not Valid Transaction"
     return "Done"
 
@@ -378,19 +374,16 @@ def get_send():
 @app.post("/send")
 def post_send():
     receiver_port = request.forms.get("port")
-    publickey = json.loads(get_wallet_from_db(receiver_port))[1]
+    publickey = get_wallet_from_db(receiver_port)[1]
     bounty = request.forms.get("satoshis")
     message = ""
     try:
         amt = int(bounty)
-        if len(publickey) == 128:
-            if check_balance() > amt:
-                message = "Your satoshis are sent !!!"
-                send_bounty(amt, publickey, consts.FEES)
-            else:
-                message = "You have insufficient balance !!!"
+        if check_balance() > amt:
+            message = "Your satoshis are sent !!!"
+            send_bounty(amt, publickey, consts.FEES)
         else:
-            message = "Check your inputs"
+            message = "You have insufficient balance !!!"
         return template("send.html", message=message)
     except Exception as e:
         message = "Enter numeric satoshis"
@@ -426,7 +419,7 @@ def sendinfo():
         + "<br>Block reward "
         + str(BLOCKCHAIN.active_chain.current_block_reward())
         + "<br>Public Key "
-        + str(json.loads(get_wallet_from_db(consts.MINER_SERVER_PORT))[1])
+        + str(get_wallet_from_db(consts.MINER_SERVER_PORT)[1])
     )
     return s
 

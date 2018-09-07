@@ -7,10 +7,6 @@ LOG_DIRECTORY = "log/"
 DATE_FORMAT = "%d %b %H:%M:%S"
 LOG_LEVEL = logging.DEBUG
 
-# WALLET CONSTANTS
-WALLET_DB_LOC = "wallet.sqlite"
-
-
 # DNS SEED CONSTANTS
 ENTRY_DURATION = 60 * 60 * 24 * 1  # duration in seconds
 SEED_SERVER_URL = "http://localhost:8080"
@@ -85,6 +81,9 @@ GENESIS_BLOCK_SIGNATURE = "4093f844282309feb788feb2d3a81946cbc70478360f0d0fe581e
 
 # DB CONSTANTS
 BLOCK_DB_LOC = "db/" + str(MINER_SERVER_PORT) + "block.sqlite"
+
+# WALLET CONSTANTS
+WALLET_DB_LOC = "wallet/"
 
 # DEFAULT FEES
 FEES = 1

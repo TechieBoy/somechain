@@ -11,7 +11,6 @@ dependencies:
   - click=6.7=py37_0
   - cryptography=2.2.2=py37h14c3975_0
   - flake8=3.5.0=py37_1
-  - flask=1.0.2=py37_1
   - idna=2.7=py37_0
   - isort=4.3.4=py37_0
   - itsdangerous=0.24=py37_1
@@ -56,8 +55,6 @@ dependencies:
     - curtsies==0.3.0
     - ecdsa==0.13
     - flake8-mypy==17.8.0
-    - flask-httpauth==3.2.4
-    - flask-profiler==1.6
     - greenlet==0.4.14
     - mypy==0.620
     - numpy==1.15.1
