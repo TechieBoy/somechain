@@ -5,10 +5,11 @@ from multiprocessing import Pool, Process
 from threading import Thread, Timer
 from typing import Any, Dict, List
 
-import flask_profiler
 import requests
 import waitress
-from flask import Flask, jsonify, render_template, request
+from bottle import (BaseTemplate, Bottle, request, response, static_file,
+                    template)
+from wsgi_lineprof.middleware import LineProfilerMiddleware
 
 import utils.constants as consts
 from core import (Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut,
@@ -20,12 +21,8 @@ from utils.utils import (compress, decompress, dhash,
                          get_time_difference_from_now_secs)
 from wallet import Wallet
 
-app = Flask(__name__)
-app.config["DEBUG"] = True
-
-# You need to declare necessary configuration to initialize
-# flask-profiler as follows:
-app.config["flask_profiler"] = {"enabled": app.config["DEBUG"], "storage": {"engine": "sqlite"}, "ignore": ["^/static/.*"]}
+app = Bottle()
+BaseTemplate.defaults["get_url"] = app.get_url
 
 BLOCKCHAIN = BlockChain()
 
@@ -57,15 +54,14 @@ def send_to_all_peers(url, data):
             try:
                 requests.post(get_peer_url(peer) + url, data=data, timeout=(5, 1))
             except Exception as e:
-                logger.debug("Flask: Requests: Error while sending data in process" + str(peer))
+                logger.debug("Server: Requests: Error while sending data in process" + str(peer))
 
     Process(target=request_task, args=(PEER_LIST, url, data), daemon=True).start()
 
 
 def start_mining_thread():
     time.sleep(5)
-    t = Thread(target=mining_thread_task, name="Miner", daemon=True)
-    t.start()
+    Thread(target=mining_thread_task, name="Miner", daemon=True).start()
 
 
 def fetch_peer_list() -> List[Dict[str, Any]]:
@@ -137,7 +133,7 @@ def find_fork_height(peer):
 def sync(max_peer):
     fork_height = find_fork_height(max_peer)
     r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": fork_height})
-    hash_list = json.loads(decompress(r.text))
+    hash_list = json.loads(decompress(r.text.encode()))
     logger.debug("Received the Following HashList from peer " + str(get_peer_url(max_peer)))
     logger.debug(hash_list)
     for hhash in hash_list:
@@ -205,7 +201,7 @@ def send_bounty(bounty: int, receiver_public_key: str, fees: int):
                 timeout=(5, 1),
             )
         except Exception as e:
-            logger.error("Wallet: Could not Send Transaction. Try Again.")
+            logger.error("Wallet: Could not Send Transaction. Try Again." + str(e))
         else:
             logger.info("Wallet: Transaction Sent, Wait for it to be Mined")
 
@@ -232,15 +228,15 @@ def calculate_transaction_fees(tx: Transaction, w: Wallet, bounty: int, fees: in
     tx.sign(w)
 
 
-@app.route("/greetpeer", methods=["POST"])
+@app.post("/greetpeer")
 def hello():
     try:
         peer = {}
-        peer["port"] = request.form["port"]
+        peer["port"] = request.forms.get("port")
         peer["ip"] = request.remote_addr
         peer["time"] = time.time()
-        peer["version"] = request.form["version"]
-        peer["blockheight"] = request.form["blockheight"]
+        peer["version"] = request.forms.get("version")
+        peer["blockheight"] = request.forms.get("blockheight")
 
         ADD_ENTRY = True
         for entry in PEER_LIST:
@@ -250,47 +246,53 @@ def hello():
                 ADD_ENTRY = False
         if ADD_ENTRY:
             PEER_LIST.append(peer)
-            logger.debug("Flask: Greet, A new peer joined, Adding to List")
+            logger.debug("Server: Greet, A new peer joined, Adding to List")
     except Exception as e:
-        logger.debug("Flask: Greet Error: " + str(e))
+        logger.debug("Server: Greet Error: " + str(e))
         pass
 
     data = {"version": consts.MINER_VERSION, "blockheight": BLOCKCHAIN.active_chain.length}
-    return jsonify(data)
+    response.content_type = "application/json"
+    return json.dumps(data)
 
 
 @lru_cache(maxsize=128)
 def cached_get_block(headerhash: str) -> str:
     if headerhash:
-        return compress(get_block_from_db(headerhash))
+        db_block = get_block_from_db(headerhash)
+        if db_block:
+            return compress(db_block)
+        else:
+            logger.error("ERROR CALLED GETBLOCK FOR NON EXISTENT BLOCK")
     return "Hash hi nahi bheja LOL"
 
 
-@app.route("/getblock", methods=["POST"])
+@app.post("/getblock")
 def getblock():
-    hhash = request.form.get("headerhash")
+    hhash = request.forms.get("headerhash")
     return cached_get_block(hhash)
 
 
-@app.route("/checkblock", methods=["POST"])
+@app.post("/checkblock")
 def checkblock():
-    headerhash = request.form.get("headerhash")
+    headerhash = request.forms.get("headerhash")
+    response.content_type = "application/json"
     if headerhash:
         with Pool(4) as p:
             hash_list = set(p.map(dhash, BLOCKCHAIN.active_chain.header_list))
             if headerhash in hash_list:
-                return jsonify(True)
-    return jsonify(False)
+                return json.dumps(True)
+    return json.dumps(False)
 
 
-@app.route("/getblockhashes", methods=["POST"])
+@app.post("/getblockhashes")
 def send_block_hashes():
-    peer_height = int(request.form.get("myheight"))
+    peer_height = int(request.forms.get("myheight"))
     hash_list = []
     for i in range(peer_height, BLOCKCHAIN.active_chain.length):
         hash_list.append(dhash(BLOCKCHAIN.active_chain.header_list[i]))
-    logger.debug("Flask: Sending Peer this Block Hash List: " + str(hash_list))
-    return compress(json.dumps(hash_list))
+    logger.debug("Server: Sending Peer this Block Hash List: " + str(hash_list))
+    return compress(json.dumps(hash_list)).decode()
 
 
 @lru_cache(maxsize=16)
@@ -302,31 +304,32 @@ def process_new_block(request_data: bytes) -> str:
             block = Block.from_json(block_json).object()
             # Check if block already exists
             if get_block_from_db(dhash(block.header)):
-                logger.info("Flask: Received block exists, doing nothing")
+                logger.info("Server: Received block exists, doing nothing")
                 return "Block already Received Before"
             if BLOCKCHAIN.add_block(block):
-                logger.info("Flask: Received a New Valid Block, Adding to Chain")
+                logger.info("Server: Received a New Valid Block, Adding to Chain")
 
-                logger.debug("Flask: Sending new block to peers")
+                logger.debug("Server: Sending new block to peers")
                 # Broadcast block to other peers
                 send_to_all_peers("/newblock", request_data)
 
             # TODO Make new chain/ orphan set for Block that is not added
         except Exception as e:
-            logger.error("Flask: New Block: invalid block received " + str(e))
+            logger.error("Server: New Block: invalid block received " + str(e))
             return "Invalid Block Received"
 
         # Kill Miner
         t = Timer(1, miner.stop_mining)
         t.start()
         return "Block Received"
-    logger.error("Flask: Invalid Block Received")
+    logger.error("Server: Invalid Block Received")
     return "Invalid Block"
 
 
-@app.route("/newblock", methods=["POST"])
+@app.post("/newblock")
 def received_new_block():
-    return process_new_block(request.data)
+    print(request)
+    return process_new_block(request.body.read())
 
 
 @lru_cache(maxsize=16)
@@ -349,55 +352,60 @@ def process_new_transaction(request_data: bytes) -> str:
                 logger.debug("The transation is not valid, not added to Mempool")
                 return "Not Valid Transaction"
         except Exception as e:
-            logger.error("Flask: New Transaction: Invalid tx received: " + str(e))
+            logger.error("Server: New Transaction: Invalid tx received: " + str(e))
             return "Not Valid Transaction"
     return "Done"
 
 
 # Transactions for all active chains
-@app.route("/newtransaction", methods=["POST"])
+@app.post("/newtransaction")
 def received_new_transaction():
-    return process_new_transaction(request.data)
+    return process_new_transaction(request.body.read())
 
 
-@app.route("/")
+@app.get("/")
 def home():
-    return render_template("home.html")
+    return template("home.html")
 
 
-@app.route("/send", methods=["POST", "GET"])
-def send():
-    if request.method == "GET":
-        return render_template("send.html")
+@app.get("/send")
+def get_send():
+    return template("send.html", message="")
 
-    if request.method == "POST":
-        receiver_port = request.form["port"]
-        publickey = json.loads(get_wallet_from_db(receiver_port))[1]
-        bounty = request.form["satoshis"]
-        try:
-            amt = int(bounty)
-            if len(publickey) == 128:
-                if check_balance() > amt:
-                    message = "Your satoshis are sent !!!"
-                    send_bounty(amt, publickey, consts.FEES)
-                    return render_template("send.html", message=message)
-                else:
-                    message = "You have insufficient balance !!!"
-                    return render_template("send.html", message=message)
+
+@app.post("/send")
+def post_send():
+    receiver_port = request.forms.get("port")
+    publickey = json.loads(get_wallet_from_db(receiver_port))[1]
+    bounty = request.forms.get("satoshis")
+    message = ""
+    try:
+        amt = int(bounty)
+        if len(publickey) == 128:
+            if check_balance() > amt:
+                message = "Your satoshis are sent !!!"
+                send_bounty(amt, publickey, consts.FEES)
             else:
-                message = "Check your inputs"
-                return render_template("send.html", message=message)
-        except Exception as e:
-            message = "Enter numeric satoshis"
-            return render_template("send.html", message=message)
+                message = "You have insufficient balance !!!"
+        else:
+            message = "Check your inputs"
+        return template("send.html", message=message)
+    except Exception as e:
+        message = "Enter numeric satoshis"
+        return template("send.html", message=message)
 
 
-@app.route("/checkbalance")
+@app.get("/checkbalance")
 def checkblance():
     return str(check_balance())
 
 
-@app.route("/info")
+@app.route("/static/<filename:path>", name="static")
+def serve_static(filename):
+    return static_file(filename, root="static")
+
+
+@app.get("/info")
 def sendinfo():
     s = (
         "No. of Blocks: "
@@ -421,30 +429,6 @@ def sendinfo():
     return s
 
 
-# def user_input():
-#     while True:
-#         try:
-#             print("Welcome to your wallet!")
-#             option = input("1 -> Check Balance\n2 -> Send Money\n")
-#             if option == "1":
-#                 current_balance = check_balance()
-#                 print("Your current balance is : " + str(current_balance))
-#             elif option == "2":
-#                 bounty = int(input("Enter Amount\n"))
-#                 receiver_port = input("Enter reciever port\n")
-#                 send_bounty(bounty, json.loads(get_wallet_from_db(receiver_port))[1])
-#             elif option == "3":
-#                 print("No. of Blocks: ", ACTIVE_CHAIN.length)
-#             elif option == "4":
-#                 bounty = int(input("Enter Amount\n"))
-#                 receiver_public_key = input("Enter address of receiver\n")
-#                 send_bounty(bounty, receiver_public_key)
-#             else:
-#                 print("Invalid Input. Try Again")
-#         except Exception as e:
-#             logger.error("UserInput: " + str(e))
-
-
 if __name__ == "__main__":
     try:
         BLOCKCHAIN.add_block(genesis_block)
@@ -452,18 +436,13 @@ if __name__ == "__main__":
         # Sync with all my peers
         sync_with_peers()
 
-        # Start the User Interface Thread
-        # t = Thread(target=user_input, name="UserInterface", daemon=True)
-        # t.start()
+        Thread(target=start_mining_thread, daemon=True).start()
 
-        t = Thread(target=start_mining_thread, daemon=True)
-        t.start()
-
-        # Start Flask Server
-        logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
-        flask_profiler.init_app(app)
-        # app.run(port=consts.MINER_SERVER_PORT, threaded=True, host="0.0.0.0", use_reloader=False)
+        # f = open("lineprof" + str(consts.MINER_SERVER_PORT) + ".log", "w")
+        # app = LineProfilerMiddleware(app, stream=f, async_stream=True)
+        # Start Server
         waitress.serve(app, host="0.0.0.0", threads=16, port=consts.MINER_SERVER_PORT)
 
     except KeyboardInterrupt:
         miner.stop_mining()
+        # f.close()

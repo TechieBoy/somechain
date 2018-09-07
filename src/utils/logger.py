@@ -20,6 +20,3 @@ logger.addHandler(stream_handler)
 
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.INFO)
-flask_handler = logging.FileHandler(consts.LOG_DIRECTORY + datetime.strftime(datetime.now(), consts.DATE_FORMAT) + ".flask.log")
-flask_handler.setFormatter(formatter)
-log.addHandler(flask_handler)
