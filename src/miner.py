@@ -12,7 +12,7 @@ from numpy.random import permutation
 import utils.constants as consts
 from core import Block, BlockHeader, Chain, Transaction, TxIn, TxOut
 from utils.logger import logger
-from utils.utils import dhash, merkle_hash
+from utils.utils import compress, dhash, merkle_hash
 
 
 class Miner:
@@ -105,7 +105,7 @@ class Miner:
             bhash = dhash(block_header)
             if chain.is_proper_difficulty(bhash):
                 block = Block(header=block_header, transactions=mlist)
-                requests.post("http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data={"block": block.to_json()})
+                requests.post("http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data=compress(block.to_json()))
                 logger.info(
                     f"Miner: Mined Block with {len(mlist)} transactions, Got {fees} in fees and {chain.current_block_reward()} as reward"
                 )

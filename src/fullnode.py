@@ -1,19 +1,23 @@
 import json
 import time
+from functools import lru_cache
 from multiprocessing import Pool, Process
 from threading import Thread, Timer
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List
 
 import flask_profiler
 import requests
+import waitress
 from flask import Flask, jsonify, render_template, request
 
 import utils.constants as consts
-from core import Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
+from core import (Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut,
+                  genesis_block)
 from miner import Miner
 from utils.logger import logger
 from utils.storage import get_block_from_db, get_wallet_from_db
-from utils.utils import dhash, get_time_difference_from_now_secs
+from utils.utils import (compress, decompress, dhash,
+                         get_time_difference_from_now_secs)
 from wallet import Wallet
 
 app = Flask(__name__)
@@ -47,7 +51,7 @@ def mining_thread_task():
         time.sleep(5)
 
 
-def send_to_all_peers(peers, url, data):
+def send_to_all_peers(url, data):
     def request_task(peers, url, data):
         for peer in peers:
             try:
@@ -55,7 +59,7 @@ def send_to_all_peers(peers, url, data):
             except Exception as e:
                 logger.debug("Flask: Requests: Error while sending data in process" + str(peer))
 
-    Process(target=request_task, args=(peers, url, data), daemon=True).start()
+    Process(target=request_task, args=(PEER_LIST, url, data), daemon=True).start()
 
 
 def start_mining_thread():
@@ -99,7 +103,7 @@ def greet_peer(peer: Dict[str, Any]) -> bool:
 
 def receive_block_from_peer(peer: Dict[str, Any], header_hash) -> Block:
     r = requests.post(get_peer_url(peer) + "/getblock", data={"headerhash": header_hash})
-    return Block.from_json(r.text).object()
+    return Block.from_json(decompress(r.text)).object()
 
 
 def check_block_with_peer(peer, hhash):
@@ -133,7 +137,7 @@ def find_fork_height(peer):
 def sync(max_peer):
     fork_height = find_fork_height(max_peer)
     r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": fork_height})
-    hash_list = json.loads(r.text)
+    hash_list = json.loads(decompress(r.text))
     logger.debug("Received the Following HashList from peer " + str(get_peer_url(max_peer)))
     logger.debug(hash_list)
     for hhash in hash_list:
@@ -197,7 +201,7 @@ def send_bounty(bounty: int, receiver_public_key: str, fees: int):
         try:
             requests.post(
                 "http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newtransaction",
-                data={"transaction": transaction.to_json()},
+                data=compress(transaction.to_json()),
                 timeout=(5, 1),
             )
         except Exception as e:
@@ -255,21 +259,26 @@ def hello():
     return jsonify(data)
 
 
+@lru_cache(maxsize=128)
+def cached_get_block(headerhash: str) -> str:
+    if headerhash:
+        return compress(get_block_from_db(headerhash))
+    return "Hash hi nahi bheja LOL"
+
+
 @app.route("/getblock", methods=["POST"])
 def getblock():
     hhash = request.form.get("headerhash")
-    if hhash:
-        return get_block_from_db(hhash)
-    return "Hash hi nahi bheja LOL"
+    return cached_get_block(hhash)
 
 
 @app.route("/checkblock", methods=["POST"])
 def checkblock():
-    hhash = request.form.get("headerhash")
-    if hhash:
+    headerhash = request.form.get("headerhash")
+    if headerhash:
         with Pool(4) as p:
             hash_list = set(p.map(dhash, BLOCKCHAIN.active_chain.header_list))
-            if hhash in hash_list:
+            if headerhash in hash_list:
                 return jsonify(True)
     return jsonify(False)
 
@@ -281,13 +290,13 @@ def send_block_hashes():
     for i in range(peer_height, BLOCKCHAIN.active_chain.length):
         hash_list.append(dhash(BLOCKCHAIN.active_chain.header_list[i]))
     logger.debug("Flask: Sending Peer this Block Hash List: " + str(hash_list))
-    return jsonify(hash_list)
+    return compress(json.dumps(hash_list))
 
 
-@app.route("/newblock", methods=["POST"])
-def received_new_block():
+@lru_cache(maxsize=16)
+def process_new_block(request_data: bytes) -> str:
     global BLOCKCHAIN
-    block_json = str(request.form.get("block", None))
+    block_json = decompress(request_data)
     if block_json:
         try:
             block = Block.from_json(block_json).object()
@@ -300,7 +309,7 @@ def received_new_block():
 
                 logger.debug("Flask: Sending new block to peers")
                 # Broadcast block to other peers
-                send_to_all_peers(PEER_LIST, "/newblock", data={"block": block.to_json()})
+                send_to_all_peers("/newblock", request_data)
 
             # TODO Make new chain/ orphan set for Block that is not added
         except Exception as e:
@@ -315,10 +324,15 @@ def received_new_block():
     return "Invalid Block"
 
 
-# Transactions for all active chains
-@app.route("/newtransaction", methods=["POST"])
-def received_new_transaction():
-    transaction_json = str(request.form.get("transaction", None))
+@app.route("/newblock", methods=["POST"])
+def received_new_block():
+    return process_new_block(request.data)
+
+
+@lru_cache(maxsize=16)
+def process_new_transaction(request_data: bytes) -> str:
+    global BLOCKCHAIN
+    transaction_json = decompress(request_data)
     if transaction_json:
         try:
             tx = Transaction.from_json(transaction_json).object()
@@ -328,16 +342,22 @@ def received_new_transaction():
                     logger.debug("Valid Transaction received, Adding to Mempool")
                     BLOCKCHAIN.mempool.add(tx)
                     # Broadcast block t other peers
-                    send_to_all_peers(PEER_LIST, "/newtransaction", data={"transaction": tx.to_json()})
+                    send_to_all_peers("/newtransaction", request_data)
                 else:
-                    return jsonify("Transaction Already received")
+                    return "Transaction Already received"
             else:
                 logger.debug("The transation is not valid, not added to Mempool")
-                return jsonify("Not Valid Transaction")
+                return "Not Valid Transaction"
         except Exception as e:
             logger.error("Flask: New Transaction: Invalid tx received: " + str(e))
-            return jsonify("Not Valid Transaction")
-    return jsonify("Done")
+            return "Not Valid Transaction"
+    return "Done"
+
+
+# Transactions for all active chains
+@app.route("/newtransaction", methods=["POST"])
+def received_new_transaction():
+    return process_new_transaction(request.data)
 
 
 @app.route("/")
@@ -442,7 +462,8 @@ if __name__ == "__main__":
         # Start Flask Server
         logger.info("Flask: Server running at port " + str(consts.MINER_SERVER_PORT))
         flask_profiler.init_app(app)
-        app.run(port=consts.MINER_SERVER_PORT, threaded=True, host="0.0.0.0", use_reloader=False)
+        # app.run(port=consts.MINER_SERVER_PORT, threaded=True, host="0.0.0.0", use_reloader=False)
+        waitress.serve(app, host="0.0.0.0", threads=16, port=consts.MINER_SERVER_PORT)
 
     except KeyboardInterrupt:
         miner.stop_mining()

@@ -1,5 +1,8 @@
 import datetime
 import hashlib
+import zlib as zl
+from base64 import b85decode, b85encode
+from functools import wraps
 from typing import TYPE_CHECKING, List, Union
 
 from . import constants as consts
@@ -60,10 +63,19 @@ def dhash(s: Union[str, "Transaction", "BlockHeader"]) -> str:
 
 def lock(lock):
     def decorator(f):
-
-        def call(*args, **argd):
+        @wraps(f)
+        def call(*args, **kwargs):
             with lock:
-                return f(*args, **argd)
+                return f(*args, **kwargs)
+
         return call
 
     return decorator
+
+
+def compress(payload: str) -> bytes:
+    return b85encode(zl.compress(payload.encode(), zl.Z_BEST_COMPRESSION))
+
+
+def decompress(payload: bytes) -> str:
+    return zl.decompress(b85decode(payload)).decode()
