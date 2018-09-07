@@ -9,7 +9,6 @@ import requests
 import waitress
 from bottle import (BaseTemplate, Bottle, request, response, static_file,
                     template)
-from wsgi_lineprof.middleware import LineProfilerMiddleware
 
 import utils.constants as consts
 from core import (Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut,
@@ -20,6 +19,9 @@ from utils.storage import get_block_from_db, get_wallet_from_db
 from utils.utils import (compress, decompress, dhash,
                          get_time_difference_from_now_secs)
 from wallet import Wallet
+
+# from wsgi_lineprof.middleware import LineProfilerMiddleware
+
 
 app = Bottle()
 BaseTemplate.defaults["get_url"] = app.get_url
