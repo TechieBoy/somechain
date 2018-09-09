@@ -17,7 +17,7 @@ from utils.storage import get_block_from_db, get_wallet_from_db
 from utils.utils import compress, decompress, dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
-# from wsgi_lineprof.middleware import LineProfilerMiddleware
+from wsgi_lineprof.middleware import LineProfilerMiddleware
 
 
 app = Bottle()
@@ -433,11 +433,11 @@ if __name__ == "__main__":
 
         Thread(target=start_mining_thread, daemon=True).start()
 
-        # f = open("lineprof" + str(consts.MINER_SERVER_PORT) + ".log", "w")
-        # app = LineProfilerMiddleware(app, stream=f, async_stream=True)
+        f = open("lineprof" + str(consts.MINER_SERVER_PORT) + ".log", "w")
+        app = LineProfilerMiddleware(app, stream=f, async_stream=True)
         # Start Server
         waitress.serve(app, host="0.0.0.0", threads=16, port=consts.MINER_SERVER_PORT)
 
     except KeyboardInterrupt:
         miner.stop_mining()
-        # f.close()
+        f.close()

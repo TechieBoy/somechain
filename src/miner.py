@@ -56,7 +56,7 @@ class Miner:
         
         Returns:
             List[Transaction] -- the transactions which give the best fees
-            int -- The fees in satoshis
+            int -- The fees in scoins
         """
         transactions.sort(key=attrgetter("fees"), reverse=True)
         size = 0
@@ -74,7 +74,7 @@ class Miner:
     def __mine(self, mempool: Set[Transaction], chain: Chain, payout_addr: str) -> Block:
         c_pool = list(copy.deepcopy(mempool))
         mlist, fees = self.__calculate_best_transactions(c_pool)
-        # logger.debug(f"Miner: Will mine {len(mlist)} transactions and get {fees} satoshis in fees")
+        # logger.debug(f"Miner: Will mine {len(mlist)} transactions and get {fees} scoins in fees")
         coinbase_tx_in = {0: TxIn(payout=None, sig="Receiving some Money", pub_key="Does it matter?")}
         coinbase_tx_out = {
             0: TxOut(amount=chain.current_block_reward(), address=payout_addr),

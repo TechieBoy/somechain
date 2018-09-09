@@ -43,7 +43,7 @@ class SingleOutput(DataClassJson):
 class TxOut(DataClassJson, dict):
     """ A single Transaction Output """
 
-    # The amount in satoshis
+    # The amount in scoin
     amount: int
 
     # Public key hash of receiver in pubkey script
@@ -138,7 +138,7 @@ class Transaction(DataClassJson):
 
         # All outputs in legal money range -3
         for index, out in self.vout.items():
-            if out.amount > consts.MAX_SATOSHIS_POSSIBLE or out.amount < 0:
+            if out.amount > consts.MAX_SCOINS_POSSIBLE or out.amount < 0:
                 logger.debug("Transaction: Invalid Amount")
                 return False
 
@@ -311,7 +311,7 @@ class Chain:
     target_difficulty: int = consts.INITIAL_BLOCK_DIFFICULTY
 
     # The Number of Coins in existence
-    total_satoshis: int = 0
+    total_scoins: int = 0
 
     @classmethod
     def build_from_header_list(cls, hlist: List[BlockHeader]):
@@ -373,7 +373,7 @@ class Chain:
 
                 sum_of_all_inputs += tx_out.amount
 
-        if sum_of_all_inputs > consts.MAX_SATOSHIS_POSSIBLE or sum_of_all_inputs < 0:
+        if sum_of_all_inputs > consts.MAX_SCOINS_POSSIBLE or sum_of_all_inputs < 0:
             logger.debug("Chain: Invalid input Amount")
             return False
 
@@ -381,7 +381,7 @@ class Chain:
             sum_of_all_outputs += tx.amount
 
         # ensure sum of amounts of all inputs is in valid amount range
-        if sum_of_all_outputs > consts.MAX_SATOSHIS_POSSIBLE or sum_of_all_outputs < 0:
+        if sum_of_all_outputs > consts.MAX_SCOINS_POSSIBLE or sum_of_all_outputs < 0:
             logger.debug("Chain: Invalid output Amount")
             return False
 
@@ -467,7 +467,7 @@ class Chain:
             self.update_utxo(block)
             self.update_target_difficulty()
             self.length = len(self.header_list)
-            self.total_satoshis = self.current_block_reward()
+            self.total_scoins = self.current_block_reward()
             add_block_to_db(block)
             logger.info("Chain: Added Block " + str(block))
             return True
@@ -492,9 +492,9 @@ class Chain:
         """Returns the current block reward
 
         Returns:
-            int -- The current block reward in satoshis
+            int -- The current block reward in scoins
         """
-        if self.total_satoshis < consts.MAX_SATOSHIS_POSSIBLE:
+        if self.total_scoins < consts.MAX_SCOINS_POSSIBLE:
             phase = self.length // consts.REWARD_UPDATE_INTERVAL
             return consts.INITIAL_BLOCK_REWARD / (2 ** phase)
         return 0
@@ -540,7 +540,7 @@ class BlockChain:
                 for hdr in chain.header_list:
                     if BlockChain.block_ref_count[dhash(hdr)] == 1:
                         del BlockChain.block_ref_count[dhash(hdr)]
-                        #remove_block_from_db(dhash(hdr))
+                        remove_block_from_db(dhash(hdr))
                     else:
                         BlockChain.block_ref_count[dhash(hdr)] -= 1
 
@@ -593,7 +593,7 @@ genesis_block_transaction = [
         fees=0,
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig=consts.GENESIS_BLOCK_SIGNATURE, pub_key="")},
-        vout={0: TxOut(amount=5, address=consts.WALLET_PUBLIC), 1: TxOut(amount=0, address=consts.WALLET_PUBLIC)},
+        vout={0: TxOut(amount=consts.INITIAL_BLOCK_REWARD, address=consts.WALLET_PUBLIC), 1: TxOut(amount=0, address=consts.WALLET_PUBLIC)},
     )
 ]
 
@@ -604,8 +604,8 @@ genesis_block_header = BlockHeader(
     height=0,
     merkle_root=merkle_hash(genesis_block_transaction),
     timestamp=1535646190,
-    target_difficulty=5,
-    nonce=1382307,
+    target_difficulty=consts.INITIAL_BLOCK_DIFFICULTY,
+    nonce=440683,
 )
 genesis_block = Block(header=genesis_block_header, transactions=genesis_block_transaction)
 
