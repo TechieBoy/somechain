@@ -540,7 +540,7 @@ class BlockChain:
                 for hdr in chain.header_list:
                     if BlockChain.block_ref_count[dhash(hdr)] == 1:
                         del BlockChain.block_ref_count[dhash(hdr)]
-                        remove_block_from_db(dhash(hdr))
+                        #remove_block_from_db(dhash(hdr))
                     else:
                         BlockChain.block_ref_count[dhash(hdr)] -= 1
 
