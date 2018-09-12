@@ -17,11 +17,10 @@ from utils.storage import get_block_from_db, get_wallet_from_db
 from utils.utils import compress, decompress, dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
-from wsgi_lineprof.middleware import LineProfilerMiddleware
-
-
 app = Bottle()
 BaseTemplate.defaults["get_url"] = app.get_url
+
+LINE_PROFILING = False
 
 BLOCKCHAIN = BlockChain()
 
@@ -133,8 +132,8 @@ def sync(max_peer):
     fork_height = find_fork_height(max_peer)
     r = requests.post(get_peer_url(max_peer) + "/getblockhashes", data={"myheight": fork_height})
     hash_list = json.loads(decompress(r.text.encode()))
-    logger.debug("Received the Following HashList from peer " + str(get_peer_url(max_peer)))
-    logger.debug(hash_list)
+    # logger.debug("Received the Following HashList from peer " + str(get_peer_url(max_peer)))
+    # logger.debug(hash_list)
     for hhash in hash_list:
         block = receive_block_from_peer(max_peer, hhash)
         if not BLOCKCHAIN.add_block(block):
@@ -288,7 +287,7 @@ def send_block_hashes():
     hash_list = []
     for i in range(peer_height, BLOCKCHAIN.active_chain.length):
         hash_list.append(dhash(BLOCKCHAIN.active_chain.header_list[i]))
-    logger.debug("Server: Sending Peer this Block Hash List: " + str(hash_list))
+    # logger.debug("Server: Sending Peer this Block Hash List: " + str(hash_list))
     return compress(json.dumps(hash_list)).decode()
 
 
@@ -375,18 +374,19 @@ def get_send():
 def post_send():
     receiver_port = request.forms.get("port")
     publickey = get_wallet_from_db(receiver_port)[1]
-    bounty = request.forms.get("satoshis")
+    bounty = request.forms.get("scoins")
     message = ""
     try:
         amt = int(bounty)
         if check_balance() > amt:
-            message = "Your satoshis are sent !!!"
+            message = "Your scoins are sent !!!"
             send_bounty(amt, publickey, consts.FEES)
         else:
             message = "You have insufficient balance !!!"
         return template("send.html", message=message)
     except Exception as e:
-        message = "Enter numeric satoshis"
+        print(e)
+        message = "The value must be numeric"
         return template("send.html", message=message)
 
 
@@ -418,7 +418,7 @@ def sendinfo():
         + str(BLOCKCHAIN.active_chain.target_difficulty)
         + "<br>Block reward "
         + str(BLOCKCHAIN.active_chain.current_block_reward())
-        + "<br>Public Key "
+        + "<br>Public Key: <br>"
         + str(get_wallet_from_db(consts.MINER_SERVER_PORT)[1])
     )
     return s
@@ -431,13 +431,18 @@ if __name__ == "__main__":
         # Sync with all my peers
         sync_with_peers()
 
+        # Start mining Thread
         Thread(target=start_mining_thread, daemon=True).start()
 
-        f = open("lineprof" + str(consts.MINER_SERVER_PORT) + ".log", "w")
-        app = LineProfilerMiddleware(app, stream=f, async_stream=True)
-        # Start Server
-        waitress.serve(app, host="0.0.0.0", threads=16, port=consts.MINER_SERVER_PORT)
+        # Start server
+        if LINE_PROFILING:
+            from wsgi_lineprof.middleware import LineProfilerMiddleware
+
+            with open("lineprof" + str(consts.MINER_SERVER_PORT) + ".log", "w") as f:
+                app = LineProfilerMiddleware(app, stream=f, async_stream=True)
+                waitress.serve(app, host="0.0.0.0", threads=16, port=consts.MINER_SERVER_PORT)
+        else:
+            waitress.serve(app, host="0.0.0.0", threads=16, port=consts.MINER_SERVER_PORT)
 
     except KeyboardInterrupt:
         miner.stop_mining()
-        f.close()

@@ -86,4 +86,4 @@ BLOCK_DB_LOC = "db/" + str(MINER_SERVER_PORT) + "block.sqlite"
 WALLET_DB_LOC = "wallet/"
 
 # DEFAULT FEES
-FEES = 1
+FEES = 10

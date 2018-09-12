@@ -7,7 +7,6 @@ from sys import getsizeof
 from typing import List, Optional, Set, Tuple
 
 import requests
-from numpy.random import permutation
 
 import utils.constants as consts
 from core import Block, BlockHeader, Chain, Transaction, TxIn, TxOut
