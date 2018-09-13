@@ -7,10 +7,6 @@ LOG_DIRECTORY = "log/"
 DATE_FORMAT = "%d %b %H:%M:%S"
 LOG_LEVEL = logging.DEBUG
 
-# WALLET CONSTANTS
-WALLET_DB_LOC = "wallet.sqlite"
-
-
 # DNS SEED CONSTANTS
 ENTRY_DURATION = 60 * 60 * 24 * 1  # duration in seconds
 SEED_SERVER_URL = "http://localhost:8080"
@@ -26,9 +22,9 @@ HASH_LENGTH_HEX = 64  # 256 bit string is 64 hexa_dec string
 FORK_CHAIN_HEIGHT = 7  # Keep only chains that are within this height of the active chain
 
 MAX_BLOCK_SIZE_KB = 4096
-MAX_SATOSHIS_POSSIBLE = 10000
+MAX_SCOINS_POSSIBLE = 100000 * 100
 
-INITIAL_BLOCK_REWARD = 5
+INITIAL_BLOCK_REWARD = 5 * 100
 REWARD_UPDATE_INTERVAL = 20_000
 
 # A block cannot have timestamp greater than this time in the future
@@ -86,5 +82,8 @@ GENESIS_BLOCK_SIGNATURE = "4093f844282309feb788feb2d3a81946cbc70478360f0d0fe581e
 # DB CONSTANTS
 BLOCK_DB_LOC = "db/" + str(MINER_SERVER_PORT) + "block.sqlite"
 
+# WALLET CONSTANTS
+WALLET_DB_LOC = "wallet/"
+
 # DEFAULT FEES
-FEES = 1
+FEES = 10

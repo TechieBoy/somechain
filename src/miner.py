@@ -7,12 +7,11 @@ from sys import getsizeof
 from typing import List, Optional, Set, Tuple
 
 import requests
-from numpy.random import permutation
 
 import utils.constants as consts
 from core import Block, BlockHeader, Chain, Transaction, TxIn, TxOut
 from utils.logger import logger
-from utils.utils import dhash, merkle_hash
+from utils.utils import compress, dhash, merkle_hash
 
 
 class Miner:
@@ -56,7 +55,7 @@ class Miner:
         
         Returns:
             List[Transaction] -- the transactions which give the best fees
-            int -- The fees in satoshis
+            int -- The fees in scoins
         """
         transactions.sort(key=attrgetter("fees"), reverse=True)
         size = 0
@@ -74,8 +73,8 @@ class Miner:
     def __mine(self, mempool: Set[Transaction], chain: Chain, payout_addr: str) -> Block:
         c_pool = list(copy.deepcopy(mempool))
         mlist, fees = self.__calculate_best_transactions(c_pool)
-        # logger.debug(f"Miner: Will mine {len(mlist)} transactions and get {fees} satoshis in fees")
-        coinbase_tx_in = {0: TxIn(payout=None, sig="Paisa mila mujhe", pub_key="Ole Ole Ole")}
+        # logger.debug(f"Miner: Will mine {len(mlist)} transactions and get {fees} scoins in fees")
+        coinbase_tx_in = {0: TxIn(payout=None, sig="Receiving some Money", pub_key="Does it matter?")}
         coinbase_tx_out = {
             0: TxOut(amount=chain.current_block_reward(), address=payout_addr),
             1: TxOut(amount=fees, address=payout_addr),
@@ -105,7 +104,7 @@ class Miner:
             bhash = dhash(block_header)
             if chain.is_proper_difficulty(bhash):
                 block = Block(header=block_header, transactions=mlist)
-                requests.post("http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data={"block": block.to_json()})
+                requests.post("http://0.0.0.0:" + str(consts.MINER_SERVER_PORT) + "/newblock", data=compress(block.to_json()))
                 logger.info(
                     f"Miner: Mined Block with {len(mlist)} transactions, Got {fees} in fees and {chain.current_block_reward()} as reward"
                 )
