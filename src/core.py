@@ -505,7 +505,6 @@ class BlockChain:
     block_lock = RLock()
     block_ref_count: Counter = Counter()
 
-
     def __init__(self):
         self.active_chain: Chain = Chain()
         self.chains: List[Chain] = []
@@ -548,9 +547,9 @@ class BlockChain:
 
     @lock(block_lock)
     def add_block(self, block: Block):
-        if check_block_in_db(dhash(block.header)):
-            logger.debug("Chain: AddBlock: Block already exists")
-            return True
+        # if check_block_in_db(dhash(block.header)):
+        #     logger.debug("Chain: AddBlock: Block already exists")
+        #     return True
 
         for chain in self.chains:
             if chain.length == 0 or block.header.prev_block_hash == dhash(chain.header_list[-1]):
