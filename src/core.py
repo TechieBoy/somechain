@@ -551,6 +551,8 @@ class BlockChain:
         #     logger.debug("Chain: AddBlock: Block already exists")
         #     return True
 
+        blockAdded = False
+
         for chain in self.chains:
             if chain.length == 0 or block.header.prev_block_hash == dhash(chain.header_list[-1]):
                 if chain.add_block(block):
@@ -559,8 +561,12 @@ class BlockChain:
                     if chain is self.active_chain:
                         # Remove the transactions from MemPool
                         self.remove_transactions_from_mempool(block)
-                    return True
+                    blockAdded = True
+        
+        if blockAdded:
+            return True
 
+        # Check if we need to fork
         self.chains.sort(key=attrgetter("length"), reverse=True)
         for chain in self.chains:
             hlist = chain.header_list
