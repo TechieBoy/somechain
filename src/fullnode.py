@@ -423,6 +423,19 @@ def sendinfo():
     )
     return s
 
+@app.get("/chains")
+def visualize_chain():
+    data = []
+    for i, chain in enumerate(BLOCKCHAIN.chains):
+        headers = []
+        for hdr in chain.header_list:
+            d = {}
+            d['hash'] = dhash(hdr)[-5:]
+            d['time'] = hdr.timestamp
+            headers.append(d)
+        data.append(headers)
+    return template('chains.html', data=data)
+
 
 if __name__ == "__main__":
     try:

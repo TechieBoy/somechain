@@ -1,0 +1,42 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>Chains</title>
+
+    <style type="text/css">
+        body,
+        html {
+            font-family: sans-serif;
+        }
+    </style>
+
+    <script src="{{ get_url('static', filename='vis.js') }}"></script>
+    <link href="{{ get_url('static', filename='vis.css') }}" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+    <div id="visualization"></div>
+
+    <script type="text/javascript">
+        // DOM element where the Timeline will be attached
+        var container = document.getElementById('visualization');
+
+        // Create a DataSet (allows two way data-binding)
+        var items = new vis.DataSet([
+            % for i, chain in enumerate(data):
+                % for height, hdr in enumerate(chain):
+                    { content: "{{str(hdr['hash'])}}", start: {{height}}, group: '{{i}}' },
+                % end
+            % end
+        ]);
+
+        // Configuration for the Timeline
+        var options = {showMajorLabels: false};
+
+        // Create a Timeline
+        var timeline = new vis.Timeline(container, items, options);
+    </script>
+</body>
+
+</html>

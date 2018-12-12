@@ -1,0 +1,20 @@
+src
+├── db
+│   └── 9000block.sqlite # Local DB File
+├── log
+│   └── 12 Dec 17:11:51.log # Log file for the full node
+├── utils
+│   ├── constants.py # Blockchain Configuration
+│   ├── encode_keys.py # Handle key encoding and decoding
+│   ├── logger.py # Code for Logging
+│   ├── secp256k1.py # ECDSA code
+│   ├── storage.py # Handle block storage
+│   └── utils.py # Utility functions
+├── wallet
+│   ├── 9000.key # Private key for full node
+│   └── 9000.pub # Public key for full node
+├── core.py # code for core classes of Blockchain
+├── dns_seed.py # code for DNS seed
+├── fullnode.py # Code for the Full node
+├── miner.py # Functions for mining
+└── wallet.py # Code for handling public and private keys
