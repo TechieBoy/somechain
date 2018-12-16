@@ -313,6 +313,13 @@ class Chain:
     # The Number of Coins in existence
     total_scoins: int = 0
 
+
+    def __eq__(self, other):
+        for i, h in enumerate(self.header_list):
+            if dhash(h) != dhash(other.header_list[i]):
+                return False
+        return True
+
     @classmethod
     def build_from_header_list(cls, hlist: List[BlockHeader]):
         nchain = cls()
@@ -568,13 +575,14 @@ class BlockChain:
 
         # Check if we need to fork
         self.chains.sort(key=attrgetter("length"), reverse=True)
-        for chain in self.chains:
-            hlist = chain.header_list
+        new_chains = copy.deepcopy(self.chains)
+        for chain in new_chains:
+            hlist = copy.deepcopy(chain.header_list)
             for h in reversed(hlist):
                 # Check if block can be added for current header
                 if dhash(h) == block.header.prev_block_hash:
                     newhlist = []
-                    for hh in hlist:
+                    for hh in chain.header_list:
                         newhlist.append(hh)
                         if dhash(hh) == block.header.prev_block_hash:
                             break
@@ -583,7 +591,8 @@ class BlockChain:
                     if nchain.add_block(block):
                         for header in nchain.header_list:
                             BlockChain.block_ref_count[dhash(header)] += 1
-                        self.chains.append(nchain)
+                        if nchain not in self.chains:
+                            self.chains.append(nchain)
                         self.update_active_chain()
                         logger.debug(f"There was a soft fork and a new chain was created with length {nchain.length}")
                         return True
