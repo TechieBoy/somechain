@@ -4,6 +4,7 @@ from functools import lru_cache
 from multiprocessing import Pool, Process
 from threading import Thread, Timer
 from typing import Any, Dict, List
+from datetime import datetime
 
 import requests
 import waitress
@@ -423,6 +424,28 @@ def sendinfo():
     )
     return s
 
+def render_block_header(hdr):
+    html = "<table>"
+
+    html += "<tr><th>" + "Block Hash" + "</th>"
+    html += "<td>" + dhash(hdr) + "</td></tr>"
+
+    html += "<tr><th>" + "Prev Block Hash" + "</th>"
+    html += "<td>" + str(hdr.prev_block_hash) + "</td></tr>"
+
+    html += "<tr><th>" + "Merkle Root" + "</th>"
+    html += "<td>" + str(hdr.merkle_root) + "</td></tr>"
+
+    html += "<tr><th>" + "Timestamp" + "</th>"
+    html += "<td>" + str(datetime.utcfromtimestamp(hdr.timestamp).strftime('%Y-%m-%d %H:%M:%S')) + "</td></tr>"
+
+    html += "<tr><th>" + "Nonce" + "</th>"
+    html += "<td>" + str(hdr.nonce) + "</td></tr>"
+    
+    html += "</table>"
+    return str(html)
+
+
 @app.get("/chains")
 def visualize_chain():
     data = []
@@ -432,6 +455,7 @@ def visualize_chain():
             d = {}
             d['hash'] = dhash(hdr)[-5:]
             d['time'] = hdr.timestamp
+            d['data'] = render_block_header(hdr)
             headers.append(d)
         data.append(headers)
     return template('chains.html', data=data)
