@@ -1,13 +1,3 @@
-"""
-Core blockchain implementation goes here
-TODO:
-    Transactions
-    Blocks
-    Block Validation
-    Storage
-
-"""
-
 import copy
 import json
 from collections import Counter
@@ -99,7 +89,6 @@ class Transaction(DataClassJson):
     def __hash__(self):
         return int(dhash(self), 16)
 
-    # TODO Test this LOL
     def __eq__(self, other):
         attrs_sam = self.is_coinbase == other.is_coinbase and self.version == other.version
         attrs_same = attrs_sam and self.timestamp == other.timestamp and self.locktime == other.locktime

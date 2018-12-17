@@ -440,7 +440,7 @@ def render_block_header(hdr):
     html += "<tr><th>" + "Timestamp" + "</th>"
     html += (
         "<td>"
-        + str(datetime.utcfromtimestamp(hdr.timestamp).strftime("%Y-%m-%d %H:%M:%S"))
+        + str(datetime.fromtimestamp(hdr.timestamp).strftime("%d-%m-%Y %H:%M:%S"))
         + " ("
         + str(hdr.timestamp)
         + ")</td></tr>"
@@ -449,6 +449,16 @@ def render_block_header(hdr):
     html += "<tr><th>" + "Nonce" + "</th>"
     html += "<td>" + str(hdr.nonce) + "</td></tr>"
 
+    # get block
+    block = Block.from_json(get_block_from_db(dhash(hdr))).object()
+    
+    html += "<tr><th>" + "Transactions" + "</th>"
+    html += "<td>" + str(len(block.transactions)) + "</td></tr>"
+
+    for i, transaction in enumerate(block.transactions):
+        s = "coinbase: " + str(transaction.is_coinbase) + ", fees: " + str(transaction.fees)
+        html += "<tr><th>Transaction " + str(i) + "</th><td>" + str(s) + "</td></tr>"
+    
     html += "</table>"
     return str(html)
 
