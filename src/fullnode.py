@@ -424,6 +424,7 @@ def sendinfo():
     )
     return s
 
+
 def render_block_header(hdr):
     html = "<table>"
 
@@ -437,11 +438,17 @@ def render_block_header(hdr):
     html += "<td>" + str(hdr.merkle_root) + "</td></tr>"
 
     html += "<tr><th>" + "Timestamp" + "</th>"
-    html += "<td>" + str(datetime.utcfromtimestamp(hdr.timestamp).strftime('%Y-%m-%d %H:%M:%S')) + "</td></tr>"
+    html += (
+        "<td>"
+        + str(datetime.utcfromtimestamp(hdr.timestamp).strftime("%Y-%m-%d %H:%M:%S"))
+        + " ("
+        + str(hdr.timestamp)
+        + ")</td></tr>"
+    )
 
     html += "<tr><th>" + "Nonce" + "</th>"
     html += "<td>" + str(hdr.nonce) + "</td></tr>"
-    
+
     html += "</table>"
     return str(html)
 
@@ -449,16 +456,17 @@ def render_block_header(hdr):
 @app.get("/chains")
 def visualize_chain():
     data = []
+    start = BLOCKCHAIN.active_chain.length - 10 if BLOCKCHAIN.active_chain.length > 10 else 0
     for i, chain in enumerate(BLOCKCHAIN.chains):
         headers = []
         for hdr in chain.header_list:
             d = {}
-            d['hash'] = dhash(hdr)[-5:]
-            d['time'] = hdr.timestamp
-            d['data'] = render_block_header(hdr)
+            d["hash"] = dhash(hdr)[-5:]
+            d["time"] = hdr.timestamp
+            d["data"] = render_block_header(hdr)
             headers.append(d)
         data.append(headers)
-    return template('chains.html', data=data)
+    return template("chains.html", data=data, start=start)
 
 
 if __name__ == "__main__":
