@@ -11,10 +11,8 @@ from typing import Any, Dict, List, Optional, Set
 import utils.constants as consts
 from utils.dataclass_json import DataClassJson
 from utils.logger import logger
-from utils.storage import (add_block_to_db, check_block_in_db,
-                           get_block_from_db, remove_block_from_db)
-from utils.utils import (dhash, get_time_difference_from_now_secs, lock,
-                         merkle_hash)
+from utils.storage import add_block_to_db, check_block_in_db, get_block_from_db, remove_block_from_db, write_header_list_to_db
+from utils.utils import dhash, get_time_difference_from_now_secs, lock, merkle_hash
 from wallet import Wallet
 
 
@@ -302,7 +300,6 @@ class Chain:
     # The Number of Coins in existence
     total_scoins: int = 0
 
-
     def __eq__(self, other):
         for i, h in enumerate(self.header_list):
             if dhash(h) != dhash(other.header_list[i]):
@@ -540,6 +537,20 @@ class BlockChain:
                         BlockChain.block_ref_count[dhash(hdr)] -= 1
 
         self.chains = new_chains
+        # Save Active Chain to DB
+        write_header_list_to_db(self.active_chain.header_list)
+
+
+    def build_from_header_list(self, hlist: List[str]):
+        try:
+            for header in hlist:
+                block = Block.from_json(get_block_from_db(header)).object()
+                if block:
+                    self.add_block(block)
+                else:
+                    logger.error("Blockchain: Block does not exist in DB")
+        except Exception as e:
+            logger.error("Blockchain: Exception " + str(e) + str(block))
 
     @lock(block_lock)
     def add_block(self, block: Block):
@@ -558,7 +569,7 @@ class BlockChain:
                         # Remove the transactions from MemPool
                         self.remove_transactions_from_mempool(block)
                     blockAdded = True
-        
+
         if blockAdded:
             return True
 
@@ -596,7 +607,10 @@ genesis_block_transaction = [
         fees=0,
         is_coinbase=True,
         vin={0: TxIn(payout=None, sig=consts.GENESIS_BLOCK_SIGNATURE, pub_key="")},
-        vout={0: TxOut(amount=consts.INITIAL_BLOCK_REWARD, address=consts.WALLET_PUBLIC), 1: TxOut(amount=0, address=consts.WALLET_PUBLIC)},
+        vout={
+            0: TxOut(amount=consts.INITIAL_BLOCK_REWARD, address=consts.WALLET_PUBLIC),
+            1: TxOut(amount=0, address=consts.WALLET_PUBLIC),
+        },
     )
 ]
 

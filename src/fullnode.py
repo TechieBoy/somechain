@@ -14,7 +14,7 @@ import utils.constants as consts
 from core import Block, BlockChain, SingleOutput, Transaction, TxIn, TxOut, genesis_block
 from miner import Miner
 from utils.logger import logger
-from utils.storage import get_block_from_db, get_wallet_from_db
+from utils.storage import get_block_from_db, get_wallet_from_db, read_header_list_from_db
 from utils.utils import compress, decompress, dhash, get_time_difference_from_now_secs
 from wallet import Wallet
 
@@ -428,6 +428,9 @@ def sendinfo():
 def render_block_header(hdr):
     html = "<table>"
 
+    html += "<tr><th>" + "Height" + "</th>"
+    html += "<td>" + str(hdr.height) + "</td></tr>"
+
     html += "<tr><th>" + "Block Hash" + "</th>"
     html += "<td>" + dhash(hdr) + "</td></tr>"
 
@@ -481,7 +484,14 @@ def visualize_chain():
 
 if __name__ == "__main__":
     try:
-        BLOCKCHAIN.add_block(genesis_block)
+        if consts.NEW_BLOCKCHAIN:
+            logger.info("FullNode: Starting New Chain from Genesis")
+            BLOCKCHAIN.add_block(genesis_block)
+        else:
+            # Restore Blockchain
+            logger.info("FullNode: Restoring Existing Chain")
+            header_list = read_header_list_from_db()
+            BLOCKCHAIN.build_from_header_list(header_list)
 
         # Sync with all my peers
         sync_with_peers()

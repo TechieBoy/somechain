@@ -91,7 +91,7 @@ class Miner:
         mlist.insert(0, coinbase_tx)
         block_header = BlockHeader(
             version=consts.MINER_VERSION,
-            height=chain.length + 1,
+            height=chain.length,
             prev_block_hash=dhash(chain.header_list[-1]),
             merkle_root=merkle_hash(mlist),
             timestamp=int(time.time()),

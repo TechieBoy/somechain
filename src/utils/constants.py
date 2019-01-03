@@ -43,8 +43,9 @@ BLOCK_MINING_SPEEDUP = 20
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--version", help="Print Implementation Version", action="store_true")
-parser.add_argument("-p", "--port", type=int, help="Port on which the somechain server should run", default=MINER_SERVER_PORT)
-parser.add_argument("-s", "--seed-server", type=str, help="Url on which the seed server is running", default=SEED_SERVER_URL)
+parser.add_argument("-p", "--port", type=int, help="Port on which the fullnode should run", default=MINER_SERVER_PORT)
+parser.add_argument("-s", "--seed-server", type=str, help="Url on which the DNS seed server is running", default=SEED_SERVER_URL)
+parser.add_argument("-n", "--new-blockchain", help="Start a new Blockchain from Genesis Block", action="store_true")
 group = parser.add_mutually_exclusive_group()
 group.add_argument("-v", "--verbose", action="store_true")
 group.add_argument("-q", "--quiet", action="store_true")
@@ -67,6 +68,12 @@ MINER_SERVER_PORT = args.port
 # Set Seed Server URL
 SEED_SERVER_URL = args.seed_server
 
+# Set if create new blockchain
+if args.new_blockchain:
+    NEW_BLOCKCHAIN = True
+else:
+    NEW_BLOCKCHAIN = False
+
 # Coinbase Maturity
 COINBASE_MATURITY = 0
 
@@ -81,6 +88,7 @@ GENESIS_BLOCK_SIGNATURE = "4093f844282309feb788feb2d3a81946cbc70478360f0d0fe581e
 
 # DB CONSTANTS
 BLOCK_DB_LOC = "db/" + str(MINER_SERVER_PORT) + "block.sqlite"
+CHAIN_DB_LOC = "db/" + str(MINER_SERVER_PORT) + "chain.json"
 
 # WALLET CONSTANTS
 WALLET_DB_LOC = "wallet/"

@@ -3,12 +3,14 @@ from typing import TYPE_CHECKING
 
 from sqlitedict import SqliteDict
 
-from .constants import BLOCK_DB_LOC, WALLET_DB_LOC
+from .constants import BLOCK_DB_LOC, CHAIN_DB_LOC, WALLET_DB_LOC, NEW_BLOCKCHAIN
 from .utils import dhash
 from .encode_keys import encode_public_key
 
 from fastecdsa.keys import export_key, import_key
 from fastecdsa.curve import secp256k1
+
+from json import loads, dumps
 
 if TYPE_CHECKING:
     import sys
@@ -20,10 +22,11 @@ if TYPE_CHECKING:
 
 WALLET_DB = None
 
-try:
-    os.remove(BLOCK_DB_LOC)
-except OSError:
-    pass
+if NEW_BLOCKCHAIN:
+    try:
+        os.remove(BLOCK_DB_LOC)
+    except OSError:
+        pass
 
 
 # WALLET FUNCTIONS
@@ -66,3 +69,18 @@ def remove_block_from_db(header_hash: str):
     with SqliteDict(BLOCK_DB_LOC, autocommit=False) as db:
         del db[header_hash]
         db.commit()
+
+
+# Active Chain functions
+def write_header_list_to_db(header_list: list):
+    with open(CHAIN_DB_LOC, "w") as file:
+        headers = list(map(dhash, header_list))
+        file.write(dumps(headers))
+
+
+def read_header_list_from_db():
+    with open(CHAIN_DB_LOC, "r") as file:
+        data = file.read()
+        if data:
+            return loads(data)
+    return None
