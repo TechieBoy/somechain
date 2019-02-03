@@ -472,7 +472,15 @@ def visualize_chain():
     start = BLOCKCHAIN.active_chain.length - 10 if BLOCKCHAIN.active_chain.length > 10 else 0
     for i, chain in enumerate(BLOCKCHAIN.chains):
         headers = []
-        for hdr in chain.header_list:
+        
+        if len(chain.header_list) > 200:
+            for hdr in chain.header_list[:100]:
+                d = {}
+                d["hash"] = dhash(hdr)[-5:]
+                d["time"] = hdr.timestamp
+                d["data"] = render_block_header(hdr)
+                headers.append(d)
+        for hdr in chain.header_list[-100:]:
             d = {}
             d["hash"] = dhash(hdr)[-5:]
             d["time"] = hdr.timestamp
