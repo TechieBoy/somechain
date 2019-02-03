@@ -37,7 +37,7 @@
         var items = new vis.DataSet([
             % for i, chain in enumerate(data):
                 % for height, hdr in enumerate(chain):
-                    { content: "{{str(hdr['hash'])}}", start: {{height}}, group: '{{i}}', title: "{{!hdr['data']}}" },
+                    { content: "{{str(hdr['hash'])}}", start: {{hdr['height']}}, group: '{{i}}', title: "{{!hdr['data']}}" },
                 % end
             % end
         ]);

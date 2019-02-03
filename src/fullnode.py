@@ -479,12 +479,14 @@ def visualize_chain():
                 d["hash"] = dhash(hdr)[-5:]
                 d["time"] = hdr.timestamp
                 d["data"] = render_block_header(hdr)
+                d["height"] = hdr.height
                 headers.append(d)
         for hdr in chain.header_list[-100:]:
             d = {}
             d["hash"] = dhash(hdr)[-5:]
             d["time"] = hdr.timestamp
             d["data"] = render_block_header(hdr)
+            d["height"] = hdr.height
             headers.append(d)
         data.append(headers)
     return template("chains.html", data=data, start=start)
