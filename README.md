@@ -1,5 +1,5 @@
 # somechain
-A (somewhat) complete implementation of the bitcoin core in python 3.7+
+A complete implementation of a proof of work blockchain in python 3.7+
 
 ## Simplifications
 - Storage using pickledb in flat files
