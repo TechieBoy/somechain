@@ -7,8 +7,7 @@ A complete implementation of a proof of work blockchain in python 3.7+
 - Can only send tokens to a single public key
 - Serialization completely done via json
 - No scripting language
-- All nodes assumed to be honest and non malicious
-- Peer discovery through a central server
+- Peer discovery through a central server instead of dns seeds.
 - Every node is a full node with a wallet, no light nodes (for now)
 
 ## Installing and running
